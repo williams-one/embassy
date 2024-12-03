@@ -86,6 +86,7 @@ pub struct TransferConfig {
     /// Instruction width (IMODE)
     pub iwidth: HspiWidth,
     /// Instruction Id
+    // TODO(willy) capire perche' u32?
     pub instruction: Option<u32>,
     /// Number of Instruction Bytes
     pub isize: AddressSize,

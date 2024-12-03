@@ -40,12 +40,12 @@ async fn main(_spawner: Spawner) {
     config.rcc.pll2 = Some(rcc::Pll {
         source: rcc::PllSource::HSE,
         prediv: rcc::PllPreDiv::DIV4,
-        mul: rcc::PllMul::MUL66,
+        mul: rcc::PllMul::MUL50, // MUL66: Running at full speed causes read/write errors!!
         divp: None,
         divq: Some(rcc::PllDiv::DIV2),
         divr: None,
     });
-    config.rcc.mux.hspi1sel = rcc::mux::Hspisel::PLL2_Q; // 132 MHz
+    config.rcc.mux.hspi1sel = rcc::mux::Hspisel::PLL2_Q; // 100 //132 MHz
 
     // Initialize peripherals
     let p = embassy_stm32::init(config);
@@ -87,16 +87,16 @@ async fn main(_spawner: Spawner) {
 
     let flash_id = flash.read_id();
     info!("FLASH ID: {=[u8]:x}", flash_id);
-    //     let mut wr_buf = [0u8; 8];
-    //     for i in 0..8 {
-    //         wr_buf[i] = i as u8;
-    //     }
-    //     let mut rd_buf = [0u8; 8];
-    //     flash.erase_sector(0).await;
-    //     flash.write_memory(0, &wr_buf, true).await;
-    //     flash.read_memory(0, &mut rd_buf, true);
-    //     info!("WRITE BUF: {=[u8]:#X}", wr_buf);
-    //     info!("READ BUF: {=[u8]:#X}", rd_buf);
+    let mut wr_buf = [0u8; 8];
+    for i in 0..8 {
+        wr_buf[i] = i as u8;
+    }
+    let mut rd_buf = [0u8; 8];
+    // flash.erase_sector(0).await;
+    // flash.write_memory(0, &wr_buf, true).await;
+    flash.read_memory(4, &mut rd_buf, false);
+    // info!("WRITE BUF: {=[u8]:#X}", wr_buf);
+    info!("READ BUF: {=[u8]:#X}", rd_buf);
     //     flash.enable_mm().await;
     //     info!("Enabled memory mapped mode");
 
@@ -119,6 +119,7 @@ async fn main(_spawner: Spawner) {
 
 // const MEMORY_PAGE_SIZE: usize = 8;
 
+const CMD_READ: u8 = 0x03;
 // const CMD_QUAD_READ: u8 = 0x6B;
 
 // const CMD_QUAD_WRITE_PG: u8 = 0x32;
@@ -128,10 +129,10 @@ const CMD_READ_ID: u8 = 0x9F;
 const CMD_RESET_ENABLE: u8 = 0x66;
 const CMD_RESET: u8 = 0x99;
 
-// const CMD_WRITE_ENABLE: u8 = 0x06;
+const CMD_WRITE_ENABLE: u8 = 0x06;
 
 // const CMD_CHIP_ERASE: u8 = 0xC7;
-// const CMD_SECTOR_ERASE: u8 = 0x20;
+const CMD_SECTOR_ERASE: u8 = 0x20;
 // const CMD_BLOCK_ERASE_32K: u8 = 0x52;
 // const CMD_BLOCK_ERASE_64K: u8 = 0xD8;
 
@@ -236,7 +237,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(cmd as u32),
             ..Default::default()
         };
-        info!("Excuting command: {:x}", transaction.instruction);
+        info!("Excuting command: 0x{:X}", transaction.instruction.unwrap());
         self.hspi.command(&transaction).await.unwrap();
     }
 
@@ -249,9 +250,9 @@ impl<I: Instance> FlashMemory<I> {
         self.wait_write_finish();
     }
 
-    //     pub async fn enable_write(&mut self) {
-    //         self.exec_command(CMD_WRITE_ENABLE).await;
-    //     }
+    pub async fn enable_write(&mut self) {
+        self.exec_command(CMD_WRITE_ENABLE).await;
+    }
 
     pub fn read_id(&mut self) -> [u8; 3] {
         let mut buffer = [0; 3];
@@ -281,47 +282,66 @@ impl<I: Instance> FlashMemory<I> {
     //         buffer
     //     }
 
-    //     pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
-    //         let transaction = TransferConfig {
-    //             iwidth: OspiWidth::SING,
-    //             adwidth: OspiWidth::SING,
-    //             adsize: AddressSize::_24bit,
-    //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(CMD_QUAD_READ as u32),
-    //             address: Some(addr),
-    //             dummy: DummyCycles::_8,
-    //             ..Default::default()
-    //         };
-    //         if use_dma {
-    //             self.ospi.blocking_read(buffer, transaction).unwrap();
-    //         } else {
-    //             self.ospi.blocking_read(buffer, transaction).unwrap();
-    //         }
+    pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
+        let transaction = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(CMD_READ as u32),
+            adwidth: HspiWidth::SING,
+            address: Some(addr),
+            adsize: AddressSize::_24bit,
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        if use_dma {
+            // DMA is not yet supported
+            self.hspi.blocking_read(buffer, transaction).unwrap();
+        } else {
+            self.hspi.blocking_read(buffer, transaction).unwrap();
+        }
+    }
+
+    // pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
+    //     let transaction = TransferConfig {
+    //         iwidth: OspiWidth::SING,
+    //         adwidth: OspiWidth::SING,
+    //         adsize: AddressSize::_24bit,
+    //         dwidth: OspiWidth::QUAD,
+    //         instruction: Some(CMD_QUAD_READ as u32),
+    //         address: Some(addr),
+    //         dummy: DummyCycles::_8,
+    //         ..Default::default()
+    //     };
+    //     if use_dma {
+    //         // DMA is not yet supported
+    //         self.ospi.blocking_read(buffer, transaction).unwrap();
+    //     } else {
+    //         self.ospi.blocking_read(buffer, transaction).unwrap();
     //     }
+    // }
 
     fn wait_write_finish(&mut self) {
         while (self.read_sr() & 0x01) != 0 {}
     }
 
-    //     async fn perform_erase(&mut self, addr: u32, cmd: u8) {
-    //         let transaction = TransferConfig {
-    //             iwidth: OspiWidth::SING,
-    //             adwidth: OspiWidth::SING,
-    //             adsize: AddressSize::_24bit,
-    //             dwidth: OspiWidth::NONE,
-    //             instruction: Some(cmd as u32),
-    //             address: Some(addr),
-    //             dummy: DummyCycles::_0,
-    //             ..Default::default()
-    //         };
-    //         self.enable_write().await;
-    //         self.ospi.command(&transaction).await.unwrap();
-    //         self.wait_write_finish();
-    //     }
+    async fn perform_erase(&mut self, addr: u32, cmd: u8) {
+        let transaction = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(cmd as u32),
+            adwidth: HspiWidth::SING,
+            adsize: AddressSize::_24bit,
+            address: Some(addr),
+            ..Default::default()
+        };
+        self.enable_write().await;
+        self.hspi.command(&transaction).await.unwrap();
+        self.wait_write_finish();
+        info!("Erase operation completed");
+    }
 
-    //     pub async fn erase_sector(&mut self, addr: u32) {
-    //         self.perform_erase(addr, CMD_SECTOR_ERASE).await;
-    //     }
+    pub async fn erase_sector(&mut self, addr: u32) {
+        info!("Erasing 4K sector at address: 0x{:X}", addr);
+        self.perform_erase(addr, CMD_SECTOR_ERASE).await;
+    }
 
     //     pub async fn erase_block_32k(&mut self, addr: u32) {
     //         self.perform_erase(addr, CMD_BLOCK_ERASE_32K).await;
@@ -362,36 +382,33 @@ impl<I: Instance> FlashMemory<I> {
     //         self.wait_write_finish();
     //     }
 
-    //     pub async fn write_memory(&mut self, addr: u32, buffer: &[u8], use_dma: bool) {
-    //         let mut left = buffer.len();
-    //         let mut place = addr;
-    //         let mut chunk_start = 0;
+    // pub async fn write_memory(&mut self, addr: u32, buffer: &[u8], use_dma: bool) {
+    //     let mut left = buffer.len();
+    //     let mut place = addr;
+    //     let mut chunk_start = 0;
 
-    //         while left > 0 {
-    //             let max_chunk_size = MEMORY_PAGE_SIZE - (place & 0x000000ff) as usize;
-    //             let chunk_size = if left >= max_chunk_size { max_chunk_size } else { left };
-    //             let chunk = &buffer[chunk_start..(chunk_start + chunk_size)];
-    //             self.write_page(place, chunk, chunk_size, use_dma).await;
-    //             place += chunk_size as u32;
-    //             left -= chunk_size;
-    //             chunk_start += chunk_size;
-    //         }
+    //     while left > 0 {
+    //         let max_chunk_size = MEMORY_PAGE_SIZE - (place & 0x000000ff) as usize;
+    //         let chunk_size = if left >= max_chunk_size { max_chunk_size } else { left };
+    //         let chunk = &buffer[chunk_start..(chunk_start + chunk_size)];
+    //         self.write_page(place, chunk, chunk_size, use_dma).await;
+    //         place += chunk_size as u32;
+    //         left -= chunk_size;
+    //         chunk_start += chunk_size;
     //     }
+    // }
 
     fn read_register(&mut self, cmd: u8) -> u8 {
         let mut buffer = [0; 1];
         let transaction: TransferConfig = TransferConfig {
             iwidth: HspiWidth::SING,
-            isize: AddressSize::_8Bit,
-            adwidth: HspiWidth::NONE,
-            adsize: AddressSize::_24bit,
-            dwidth: HspiWidth::SING,
             instruction: Some(cmd as u32),
-            address: None,
+            isize: AddressSize::_8Bit,
+            dwidth: HspiWidth::SING,
             ..Default::default()
         };
         self.hspi.blocking_read(&mut buffer, transaction).unwrap();
-        info!("Read MX66LM1G45G register: 0x{:x}", buffer[0]);
+        // info!("Read MX66LM1G45G register: 0x{:x}", buffer[0]);
         buffer[0]
     }
 
