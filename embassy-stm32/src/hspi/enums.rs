@@ -385,6 +385,28 @@ impl Into<u8> for DummyCycles {
     }
 }
 
+/// Functional mode
+#[allow(missing_docs)]
+#[allow(dead_code)]
+#[derive(Copy, Clone, defmt::Format)]
+pub enum FunctionalMode {
+    IndirectWrite,
+    IndirectRead,
+    AutoStatusPolling,
+    MemoryMapped,
+}
+
+impl Into<u8> for FunctionalMode {
+    fn into(self) -> u8 {
+        match self {
+            FunctionalMode::IndirectWrite => 0x00,
+            FunctionalMode::IndirectRead => 0x01,
+            FunctionalMode::AutoStatusPolling => 0x02,
+            FunctionalMode::MemoryMapped => 0x03,
+        }
+    }
+}
+
 pub mod vals {
     #[repr(u8)]
     pub enum FlashSelect {
@@ -415,40 +437,7 @@ pub mod vals {
             FlashSelect::to_bits(val)
         }
     }
-    #[repr(u8)]
-    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
-    pub enum FunctionalMode {
-        #[doc = "Indirect-write mode"]
-        INDIRECTWRITE = 0x0,
-        #[doc = "Indirect-read mode"]
-        INDIRECTREAD = 0x01,
-        #[doc = "Automatic status-polling mode"]
-        AUTOSTATUSPOLLING = 0x02,
-        #[doc = "Memory-mapped mode"]
-        MEMORYMAPPED = 0x03,
-    }
-    impl FunctionalMode {
-        #[inline(always)]
-        pub const fn from_bits(val: u8) -> FunctionalMode {
-            unsafe { core::mem::transmute(val & 0x03) }
-        }
-        #[inline(always)]
-        pub const fn to_bits(self) -> u8 {
-            unsafe { core::mem::transmute(self) }
-        }
-    }
-    impl From<u8> for FunctionalMode {
-        #[inline(always)]
-        fn from(val: u8) -> FunctionalMode {
-            FunctionalMode::from_bits(val)
-        }
-    }
-    impl From<FunctionalMode> for u8 {
-        #[inline(always)]
-        fn from(val: FunctionalMode) -> u8 {
-            FunctionalMode::to_bits(val)
-        }
-    }
+
     #[repr(u8)]
     #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
     pub enum LatencyMode {

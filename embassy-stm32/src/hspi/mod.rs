@@ -277,7 +277,6 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         width: HspiWidth,
         dual_memory_mode: bool,
     ) -> Self {
-        defmt::info!("config: {:?}", config);
         into_ref!(peri);
 
         // let kernel_clock = T::frequency();
@@ -584,12 +583,14 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         let current_instruction = T::REGS.ir().read().instruction();
 
         // For a indirect read transaction, the transaction begins when the instruction/address is set
-        // T::REGS.cr().modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTREAD));
-        // if T::REGS.ccr().read().admode() == vals::PhaseMode::NONE {
-        //     T::REGS.ir().write(|v| v.set_instruction(current_instruction));
-        // } else {
-        //     T::REGS.ar().write(|v| v.set_address(current_address));
-        // }
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectRead.into()));
+        if T::REGS.ccr().read().admode() == HspiWidth::NONE.into() {
+            T::REGS.ir().write(|v| v.set_instruction(current_instruction));
+        } else {
+            T::REGS.ar().write(|v| v.set_address(current_address));
+        }
 
         for idx in 0..buf.len() {
             while !T::REGS.sr().read().tcf() && !T::REGS.sr().read().ftf() {}
@@ -617,9 +618,9 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
         self.configure_command(&transaction, Some(buf.len()))?;
 
-        // T::REGS
-        //     .cr()
-        //     .modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTWRITE));
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectWrite.into()));
 
         for idx in 0..buf.len() {
             while !T::REGS.sr().read().ftf() {}

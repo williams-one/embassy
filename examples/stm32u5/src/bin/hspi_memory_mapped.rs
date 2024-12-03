@@ -82,7 +82,6 @@ async fn main(_spawner: Spawner) {
     );
 
     info!("HSPI initialized");
-    loop {}
 
     let mut flash = FlashMemory::new(hspi).await;
 
@@ -124,7 +123,7 @@ async fn main(_spawner: Spawner) {
 
 // const CMD_QUAD_WRITE_PG: u8 = 0x32;
 
-// const CMD_READ_ID: u8 = 0x9F;
+const CMD_READ_ID: u8 = 0x9F;
 
 const CMD_RESET_ENABLE: u8 = 0x66;
 const CMD_RESET: u8 = 0x99;
@@ -153,6 +152,7 @@ impl<I: Instance> FlashMemory<I> {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
+        info!("Memory reset");
         // memory.enable_octo();
         memory
     }
@@ -255,17 +255,14 @@ impl<I: Instance> FlashMemory<I> {
 
     pub fn read_id(&mut self) -> [u8; 3] {
         let mut buffer = [0; 3];
-        // let transaction: TransferConfig = TransferConfig {
-        //     iwidth: OspiWidth::SING,
-        //     isize: AddressSize::_8Bit,
-        //     adwidth: OspiWidth::NONE,
-        //     // adsize: AddressSize::_24bit,
-        //     dwidth: OspiWidth::SING,
-        //     instruction: Some(CMD_READ_ID as u32),
-        //     ..Default::default()
-        // };
-        // // info!("Reading id: 0x{:X}", transaction.instruction);
-        // self.ospi.blocking_read(&mut buffer, transaction).unwrap();
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(CMD_READ_ID as u32),
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        info!("Reading flash id: 0x{:X}", transaction.instruction.unwrap());
+        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
         buffer
     }
 
@@ -391,11 +388,10 @@ impl<I: Instance> FlashMemory<I> {
             dwidth: HspiWidth::SING,
             instruction: Some(cmd as u32),
             address: None,
-            dummy: DummyCycles::_0,
             ..Default::default()
         };
         self.hspi.blocking_read(&mut buffer, transaction).unwrap();
-        info!("Read w25q64 register: 0x{:x}", buffer[0]);
+        info!("Read MX66LM1G45G register: 0x{:x}", buffer[0]);
         buffer[0]
     }
 
