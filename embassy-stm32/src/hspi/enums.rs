@@ -1,7 +1,7 @@
 //! Enums used in Hspi configuration.
 
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub(crate) enum HspiMode {
     IndirectWrite,
     IndirectRead,
@@ -22,7 +22,7 @@ impl Into<u8> for HspiMode {
 
 /// Hspi lane width
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum HspiWidth {
     /// None
     NONE,
@@ -50,7 +50,7 @@ impl Into<u8> for HspiWidth {
 
 /// Flash bank selection
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum FlashSelection {
     /// Bank 1
     Flash1,
@@ -70,7 +70,7 @@ impl Into<bool> for FlashSelection {
 /// Wrap Size
 #[allow(dead_code)]
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum WrapSize {
     None,
     _16Bytes,
@@ -94,7 +94,7 @@ impl Into<u8> for WrapSize {
 /// Memory Type
 #[allow(missing_docs)]
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum MemoryType {
     Micron,
     Macronix,
@@ -119,7 +119,7 @@ impl Into<u8> for MemoryType {
 
 /// Hspi memory size.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum MemorySize {
     _1KiB,
     _2KiB,
@@ -179,7 +179,7 @@ impl Into<u8> for MemorySize {
 }
 
 /// Hspi Address size
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum AddressSize {
     /// 8-bit address
     _8Bit,
@@ -204,7 +204,7 @@ impl Into<u8> for AddressSize {
 
 /// Time the Chip Select line stays high.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum ChipSelectHighTime {
     _1Cycle,
     _2Cycle,
@@ -233,7 +233,7 @@ impl Into<u8> for ChipSelectHighTime {
 
 /// FIFO threshold.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum FIFOThresholdLevel {
     _1Bytes,
     _2Bytes,
@@ -310,7 +310,7 @@ impl Into<u8> for FIFOThresholdLevel {
 
 /// Dummy cycle count
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, defmt::Format)]
 pub enum DummyCycles {
     _0,
     _1,
@@ -385,268 +385,271 @@ impl Into<u8> for DummyCycles {
     }
 }
 
-pub enum FlashSelect {
-    #[doc = "FLASH 1 selected (data exchanged over IO\\[3:0\\])"]
-    FLASHONE = 0x0,
-    #[doc = "FLASH 2 selected (data exchanged over IO\\[7:4\\])"]
-    FLASHTWO = 0x01,
-}
-impl FlashSelect {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> FlashSelect {
-        unsafe { core::mem::transmute(val & 0x01) }
+pub mod vals {
+    #[repr(u8)]
+    pub enum FlashSelect {
+        #[doc = "FLASH 1 selected (data exchanged over IO\\[3:0\\])"]
+        FLASHONE = 0x0,
+        #[doc = "FLASH 2 selected (data exchanged over IO\\[7:4\\])"]
+        FLASHTWO = 0x01,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl FlashSelect {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> FlashSelect {
+            unsafe { core::mem::transmute(val & 0x01) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for FlashSelect {
-    #[inline(always)]
-    fn from(val: u8) -> FlashSelect {
-        FlashSelect::from_bits(val)
+    impl From<u8> for FlashSelect {
+        #[inline(always)]
+        fn from(val: u8) -> FlashSelect {
+            FlashSelect::from_bits(val)
+        }
     }
-}
-impl From<FlashSelect> for u8 {
-    #[inline(always)]
-    fn from(val: FlashSelect) -> u8 {
-        FlashSelect::to_bits(val)
+    impl From<FlashSelect> for u8 {
+        #[inline(always)]
+        fn from(val: FlashSelect) -> u8 {
+            FlashSelect::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum FunctionalMode {
-    #[doc = "Indirect-write mode"]
-    INDIRECTWRITE = 0x0,
-    #[doc = "Indirect-read mode"]
-    INDIRECTREAD = 0x01,
-    #[doc = "Automatic status-polling mode"]
-    AUTOSTATUSPOLLING = 0x02,
-    #[doc = "Memory-mapped mode"]
-    MEMORYMAPPED = 0x03,
-}
-impl FunctionalMode {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> FunctionalMode {
-        unsafe { core::mem::transmute(val & 0x03) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum FunctionalMode {
+        #[doc = "Indirect-write mode"]
+        INDIRECTWRITE = 0x0,
+        #[doc = "Indirect-read mode"]
+        INDIRECTREAD = 0x01,
+        #[doc = "Automatic status-polling mode"]
+        AUTOSTATUSPOLLING = 0x02,
+        #[doc = "Memory-mapped mode"]
+        MEMORYMAPPED = 0x03,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl FunctionalMode {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> FunctionalMode {
+            unsafe { core::mem::transmute(val & 0x03) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for FunctionalMode {
-    #[inline(always)]
-    fn from(val: u8) -> FunctionalMode {
-        FunctionalMode::from_bits(val)
+    impl From<u8> for FunctionalMode {
+        #[inline(always)]
+        fn from(val: u8) -> FunctionalMode {
+            FunctionalMode::from_bits(val)
+        }
     }
-}
-impl From<FunctionalMode> for u8 {
-    #[inline(always)]
-    fn from(val: FunctionalMode) -> u8 {
-        FunctionalMode::to_bits(val)
+    impl From<FunctionalMode> for u8 {
+        #[inline(always)]
+        fn from(val: FunctionalMode) -> u8 {
+            FunctionalMode::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum LatencyMode {
-    #[doc = "Variable initial latency"]
-    VARIABLE = 0x0,
-    #[doc = "Fixed latency"]
-    FIXED = 0x01,
-}
-impl LatencyMode {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> LatencyMode {
-        unsafe { core::mem::transmute(val & 0x01) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum LatencyMode {
+        #[doc = "Variable initial latency"]
+        VARIABLE = 0x0,
+        #[doc = "Fixed latency"]
+        FIXED = 0x01,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl LatencyMode {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> LatencyMode {
+            unsafe { core::mem::transmute(val & 0x01) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for LatencyMode {
-    #[inline(always)]
-    fn from(val: u8) -> LatencyMode {
-        LatencyMode::from_bits(val)
+    impl From<u8> for LatencyMode {
+        #[inline(always)]
+        fn from(val: u8) -> LatencyMode {
+            LatencyMode::from_bits(val)
+        }
     }
-}
-impl From<LatencyMode> for u8 {
-    #[inline(always)]
-    fn from(val: LatencyMode) -> u8 {
-        LatencyMode::to_bits(val)
+    impl From<LatencyMode> for u8 {
+        #[inline(always)]
+        fn from(val: LatencyMode) -> u8 {
+            LatencyMode::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum MatchMode {
-    #[doc = "AND-match mode, SMF is set if all the unmasked bits received from the device match the corresponding bits in the match register."]
-    MATCHAND = 0x0,
-    #[doc = "OR-match mode, SMF is set if any of the unmasked bits received from the device matches its corresponding bit in the match register."]
-    MATCHOR = 0x01,
-}
-impl MatchMode {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> MatchMode {
-        unsafe { core::mem::transmute(val & 0x01) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum MatchMode {
+        #[doc = "AND-match mode, SMF is set if all the unmasked bits received from the device match the corresponding bits in the match register."]
+        MATCHAND = 0x0,
+        #[doc = "OR-match mode, SMF is set if any of the unmasked bits received from the device matches its corresponding bit in the match register."]
+        MATCHOR = 0x01,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl MatchMode {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> MatchMode {
+            unsafe { core::mem::transmute(val & 0x01) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for MatchMode {
-    #[inline(always)]
-    fn from(val: u8) -> MatchMode {
-        MatchMode::from_bits(val)
+    impl From<u8> for MatchMode {
+        #[inline(always)]
+        fn from(val: u8) -> MatchMode {
+            MatchMode::from_bits(val)
+        }
     }
-}
-impl From<MatchMode> for u8 {
-    #[inline(always)]
-    fn from(val: MatchMode) -> u8 {
-        MatchMode::to_bits(val)
+    impl From<MatchMode> for u8 {
+        #[inline(always)]
+        fn from(val: MatchMode) -> u8 {
+            MatchMode::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum MemType {
-    #[doc = "Micron mode, D0/D1 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes."]
-    MICRON = 0x0,
-    #[doc = "Macronix mode, D1/D0 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes."]
-    MACRONIX = 0x01,
-    #[doc = "Standard mode"]
-    B_STANDARD = 0x02,
-    #[doc = "Macronix RAM mode, D1/D0 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes with dedicated address mapping."]
-    MACRONIXRAM = 0x03,
-    #[doc = "HyperBus memory mode, the protocol follows the HyperBus specification. 8-data-bit DTR mode must be selected."]
-    HYPERBUSMEMORY = 0x04,
-    #[doc = "HyperBus register mode, addressing register space. The memory-mapped accesses in. this mode must be non-cacheable, or Indirect read/write modes must be used."]
-    HYPERBUSREGISTER = 0x05,
-    _RESERVED_6 = 0x06,
-    _RESERVED_7 = 0x07,
-}
-impl MemType {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> MemType {
-        unsafe { core::mem::transmute(val & 0x07) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum MemType {
+        #[doc = "Micron mode, D0/D1 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes."]
+        MICRON = 0x0,
+        #[doc = "Macronix mode, D1/D0 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes."]
+        MACRONIX = 0x01,
+        #[doc = "Standard mode"]
+        B_STANDARD = 0x02,
+        #[doc = "Macronix RAM mode, D1/D0 ordering in DTR 8-data-bit mode. Regular-command protocol in Single-, Dual-, Quad- and Octal-SPI modes with dedicated address mapping."]
+        MACRONIXRAM = 0x03,
+        #[doc = "HyperBus memory mode, the protocol follows the HyperBus specification. 8-data-bit DTR mode must be selected."]
+        HYPERBUSMEMORY = 0x04,
+        #[doc = "HyperBus register mode, addressing register space. The memory-mapped accesses in. this mode must be non-cacheable, or Indirect read/write modes must be used."]
+        HYPERBUSREGISTER = 0x05,
+        _RESERVED_6 = 0x06,
+        _RESERVED_7 = 0x07,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl MemType {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> MemType {
+            unsafe { core::mem::transmute(val & 0x07) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for MemType {
-    #[inline(always)]
-    fn from(val: u8) -> MemType {
-        MemType::from_bits(val)
+    impl From<u8> for MemType {
+        #[inline(always)]
+        fn from(val: u8) -> MemType {
+            MemType::from_bits(val)
+        }
     }
-}
-impl From<MemType> for u8 {
-    #[inline(always)]
-    fn from(val: MemType) -> u8 {
-        MemType::to_bits(val)
+    impl From<MemType> for u8 {
+        #[inline(always)]
+        fn from(val: MemType) -> u8 {
+            MemType::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum PhaseMode {
-    #[doc = "No alternate bytes"]
-    NONE = 0x0,
-    #[doc = "Alternate bytes on a single line"]
-    ONELINE = 0x01,
-    #[doc = "Alternate bytes on two lines"]
-    TWOLINES = 0x02,
-    #[doc = "Alternate bytes on four lines"]
-    FOURLINES = 0x03,
-    #[doc = "Alternate bytes on eight lines"]
-    EIGHTLINES = 0x04,
-    _RESERVED_5 = 0x05,
-    _RESERVED_6 = 0x06,
-    _RESERVED_7 = 0x07,
-}
-impl PhaseMode {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> PhaseMode {
-        unsafe { core::mem::transmute(val & 0x07) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum PhaseMode {
+        #[doc = "No alternate bytes"]
+        NONE = 0x0,
+        #[doc = "Alternate bytes on a single line"]
+        ONELINE = 0x01,
+        #[doc = "Alternate bytes on two lines"]
+        TWOLINES = 0x02,
+        #[doc = "Alternate bytes on four lines"]
+        FOURLINES = 0x03,
+        #[doc = "Alternate bytes on eight lines"]
+        EIGHTLINES = 0x04,
+        _RESERVED_5 = 0x05,
+        _RESERVED_6 = 0x06,
+        _RESERVED_7 = 0x07,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl PhaseMode {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> PhaseMode {
+            unsafe { core::mem::transmute(val & 0x07) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for PhaseMode {
-    #[inline(always)]
-    fn from(val: u8) -> PhaseMode {
-        PhaseMode::from_bits(val)
+    impl From<u8> for PhaseMode {
+        #[inline(always)]
+        fn from(val: u8) -> PhaseMode {
+            PhaseMode::from_bits(val)
+        }
     }
-}
-impl From<PhaseMode> for u8 {
-    #[inline(always)]
-    fn from(val: PhaseMode) -> u8 {
-        PhaseMode::to_bits(val)
+    impl From<PhaseMode> for u8 {
+        #[inline(always)]
+        fn from(val: PhaseMode) -> u8 {
+            PhaseMode::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SampleShift {
-    #[doc = "No shift"]
-    NONE = 0x0,
-    #[doc = "1/2 cycle shift"]
-    HALFCYCLE = 0x01,
-}
-impl SampleShift {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> SampleShift {
-        unsafe { core::mem::transmute(val & 0x01) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum SampleShift {
+        #[doc = "No shift"]
+        NONE = 0x0,
+        #[doc = "1/2 cycle shift"]
+        HALFCYCLE = 0x01,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl SampleShift {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> SampleShift {
+            unsafe { core::mem::transmute(val & 0x01) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for SampleShift {
-    #[inline(always)]
-    fn from(val: u8) -> SampleShift {
-        SampleShift::from_bits(val)
+    impl From<u8> for SampleShift {
+        #[inline(always)]
+        fn from(val: u8) -> SampleShift {
+            SampleShift::from_bits(val)
+        }
     }
-}
-impl From<SampleShift> for u8 {
-    #[inline(always)]
-    fn from(val: SampleShift) -> u8 {
-        SampleShift::to_bits(val)
+    impl From<SampleShift> for u8 {
+        #[inline(always)]
+        fn from(val: SampleShift) -> u8 {
+            SampleShift::to_bits(val)
+        }
     }
-}
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum SizeInBits {
-    #[doc = "8-bit alternate bytes"]
-    _8BIT = 0x0,
-    #[doc = "16-bit alternate bytes"]
-    _16BIT = 0x01,
-    #[doc = "24-bit alternate bytes"]
-    _24BIT = 0x02,
-    #[doc = "32-bit alternate bytes"]
-    _32BIT = 0x03,
-}
-impl SizeInBits {
-    #[inline(always)]
-    pub const fn from_bits(val: u8) -> SizeInBits {
-        unsafe { core::mem::transmute(val & 0x03) }
+    #[repr(u8)]
+    #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, defmt::Format)]
+    pub enum SizeInBits {
+        #[doc = "8-bit alternate bytes"]
+        _8BIT = 0x0,
+        #[doc = "16-bit alternate bytes"]
+        _16BIT = 0x01,
+        #[doc = "24-bit alternate bytes"]
+        _24BIT = 0x02,
+        #[doc = "32-bit alternate bytes"]
+        _32BIT = 0x03,
     }
-    #[inline(always)]
-    pub const fn to_bits(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
+    impl SizeInBits {
+        #[inline(always)]
+        pub const fn from_bits(val: u8) -> SizeInBits {
+            unsafe { core::mem::transmute(val & 0x03) }
+        }
+        #[inline(always)]
+        pub const fn to_bits(self) -> u8 {
+            unsafe { core::mem::transmute(self) }
+        }
     }
-}
-impl From<u8> for SizeInBits {
-    #[inline(always)]
-    fn from(val: u8) -> SizeInBits {
-        SizeInBits::from_bits(val)
+    impl From<u8> for SizeInBits {
+        #[inline(always)]
+        fn from(val: u8) -> SizeInBits {
+            SizeInBits::from_bits(val)
+        }
     }
-}
-impl From<SizeInBits> for u8 {
-    #[inline(always)]
-    fn from(val: SizeInBits) -> u8 {
-        SizeInBits::to_bits(val)
+    impl From<SizeInBits> for u8 {
+        #[inline(always)]
+        fn from(val: SizeInBits) -> u8 {
+            SizeInBits::to_bits(val)
+        }
     }
 }

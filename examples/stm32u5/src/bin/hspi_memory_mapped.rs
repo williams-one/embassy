@@ -14,8 +14,8 @@ use embassy_stm32::hspi::{
 };
 // use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::mode::Blocking;
-// use embassy_stm32::time::Hertz;
-use embassy_stm32::Config;
+use embassy_stm32::time::Hertz;
+use embassy_stm32::{pac, rcc, Config};
 // use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -23,34 +23,29 @@ use {defmt_rtt as _, panic_probe as _};
 async fn main(_spawner: Spawner) {
     // RCC config
     let mut config = Config::default();
-    //     info!("START");
-    //     {
-    //         use embassy_stm32::rcc::*;
-    //         config.rcc.hsi = Some(HSIPrescaler::DIV1);
-    //         config.rcc.csi = true;
-    //         // Needed for USB
-    //         config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
-    //         // External oscillator 25MHZ
-    //         config.rcc.hse = Some(Hse {
-    //             freq: Hertz(25_000_000),
-    //             mode: HseMode::Oscillator,
-    //         });
-    //         config.rcc.pll1 = Some(Pll {
-    //             source: PllSource::HSE,
-    //             prediv: PllPreDiv::DIV5,
-    //             mul: PllMul::MUL112,
-    //             divp: Some(PllDiv::DIV2),
-    //             divq: Some(PllDiv::DIV2),
-    //             divr: Some(PllDiv::DIV2),
-    //         });
-    //         config.rcc.sys = Sysclk::PLL1_P;
-    //         config.rcc.ahb_pre = AHBPrescaler::DIV2;
-    //         config.rcc.apb1_pre = APBPrescaler::DIV2;
-    //         config.rcc.apb2_pre = APBPrescaler::DIV2;
-    //         config.rcc.apb3_pre = APBPrescaler::DIV2;
-    //         config.rcc.apb4_pre = APBPrescaler::DIV2;
-    //         config.rcc.voltage_scale = VoltageScale::Scale0;
-    //     }
+    info!("START");
+    config.rcc.hse = Some(rcc::Hse {
+        freq: Hertz(16_000_000),
+        mode: rcc::HseMode::Oscillator,
+    });
+    config.rcc.pll1 = Some(rcc::Pll {
+        source: rcc::PllSource::HSE,
+        prediv: rcc::PllPreDiv::DIV1,
+        mul: rcc::PllMul::MUL10,
+        divp: None,
+        divq: None,
+        divr: Some(rcc::PllDiv::DIV1),
+    });
+    config.rcc.sys = rcc::Sysclk::PLL1_R; // 160 Mhz
+    config.rcc.pll2 = Some(rcc::Pll {
+        source: rcc::PllSource::HSE,
+        prediv: rcc::PllPreDiv::DIV4,
+        mul: rcc::PllMul::MUL66,
+        divp: None,
+        divq: Some(rcc::PllDiv::DIV2),
+        divr: None,
+    });
+    config.rcc.mux.hspi1sel = rcc::mux::Hspisel::PLL2_Q; // 132 MHz
 
     // Initialize peripherals
     let p = embassy_stm32::init(config);
@@ -67,7 +62,7 @@ async fn main(_spawner: Spawner) {
         sample_shifting: false,
         delay_hold_quarter_cycle: false,
         chip_select_boundary: 0,
-        delay_block_bypass: true, // cosa rappresenta??
+        delay_block_bypass: false,
         max_transfer: 0,
         refresh: 0,
     };
@@ -85,6 +80,9 @@ async fn main(_spawner: Spawner) {
         p.PH9,
         ospi_config,
     );
+
+    info!("HSPI initialized");
+    loop {}
 
     let mut flash = FlashMemory::new(hspi).await;
 
@@ -138,7 +136,7 @@ const CMD_RESET: u8 = 0x99;
 // const CMD_BLOCK_ERASE_32K: u8 = 0x52;
 // const CMD_BLOCK_ERASE_64K: u8 = 0xD8;
 
-// const CMD_READ_SR: u8 = 0x05;
+const CMD_READ_SR: u8 = 0x05;
 // const CMD_READ_CR: u8 = 0x35;
 
 // const CMD_WRITE_SR: u8 = 0x01;
@@ -244,8 +242,8 @@ impl<I: Instance> FlashMemory<I> {
 
     pub async fn reset_memory(&mut self) {
         // servono entrambi i comandi?
-        self.exec_command_4(CMD_RESET_ENABLE).await;
-        self.exec_command_4(CMD_RESET).await;
+        // self.exec_command_4(CMD_RESET_ENABLE).await;
+        // self.exec_command_4(CMD_RESET).await;
         self.exec_command(CMD_RESET_ENABLE).await;
         self.exec_command(CMD_RESET).await;
         self.wait_write_finish();
@@ -385,36 +383,36 @@ impl<I: Instance> FlashMemory<I> {
 
     fn read_register(&mut self, cmd: u8) -> u8 {
         let mut buffer = [0; 1];
-        // let transaction: TransferConfig = TransferConfig {
-        //     iwidth: OspiWidth::SING,
-        //     isize: AddressSize::_8Bit,
-        //     adwidth: OspiWidth::NONE,
-        //     adsize: AddressSize::_24bit,
-        //     dwidth: OspiWidth::SING,
-        //     instruction: Some(cmd as u32),
-        //     address: None,
-        //     dummy: DummyCycles::_0,
-        //     ..Default::default()
-        // };
-        // self.ospi.blocking_read(&mut buffer, transaction).unwrap();
-        // // info!("Read w25q64 register: 0x{:x}", buffer[0]);
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            isize: AddressSize::_8Bit,
+            adwidth: HspiWidth::NONE,
+            adsize: AddressSize::_24bit,
+            dwidth: HspiWidth::SING,
+            instruction: Some(cmd as u32),
+            address: None,
+            dummy: DummyCycles::_0,
+            ..Default::default()
+        };
+        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
+        info!("Read w25q64 register: 0x{:x}", buffer[0]);
         buffer[0]
     }
 
     fn write_register(&mut self, cmd: u8, value: u8) {
         let buffer = [value; 1];
-        // let transaction: TransferConfig = TransferConfig {
-        //     iwidth: OspiWidth::SING,
-        //     isize: AddressSize::_8Bit,
-        //     instruction: Some(cmd as u32),
-        //     adsize: AddressSize::_24bit,
-        //     adwidth: OspiWidth::NONE,
-        //     dwidth: OspiWidth::SING,
-        //     address: None,
-        //     dummy: DummyCycles::_0,
-        //     ..Default::default()
-        // };
-        // self.ospi.blocking_write(&buffer, transaction).unwrap();
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            isize: AddressSize::_8Bit,
+            instruction: Some(cmd as u32),
+            adsize: AddressSize::_24bit,
+            adwidth: HspiWidth::NONE,
+            dwidth: HspiWidth::SING,
+            address: None,
+            dummy: DummyCycles::_0,
+            ..Default::default()
+        };
+        self.hspi.blocking_write(&buffer, transaction).unwrap();
     }
 
     pub fn read_sr(&mut self) -> u8 {

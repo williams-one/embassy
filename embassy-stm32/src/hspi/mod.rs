@@ -9,19 +9,19 @@ use core::marker::PhantomData;
 
 // use embassy_embedded_hal::{GetConfig, SetConfig};
 use embassy_hal_internal::{into_ref, PeripheralRef};
-pub use enums::*;
-// use stm32_metapac::octhspi::vals::{PhaseMode, SizeInBits};
+pub use enums::*; // TODO include anche vals
+                  // use stm32_metapac::octhspi::vals::{PhaseMode, SizeInBits};
 
 use crate::dma::{word, ChannelAndRequest};
 use crate::gpio::{AfType, AnyPin, OutputType, Pull, SealedPin as _, Speed};
 use crate::mode::{Async, Blocking, Mode as PeriMode};
 // TODO aggiungere vals
-use crate::pac::hspi::{/*vals, */ Hspi as Regs};
+use crate::pac::hspi::Hspi as Regs;
 use crate::rcc::{self, RccPeripheral};
 use crate::{peripherals, Peripheral};
 
 /// HSPI driver config.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, defmt::Format)]
 pub struct Config {
     /// Fifo threshold used by the peripheral to generate the interrupt indicating data
     /// or space is available in the FIFO
@@ -51,7 +51,7 @@ pub struct Config {
     /// Enables the transaction boundary feature and defines the boundary to release
     /// the chip select
     pub chip_select_boundary: u8,
-    /// Enbales the delay block bypass so the sampling is not affected by the delay block
+    /// Enables the delay block bypass so the sampling is not affected by the delay block
     pub delay_block_bypass: bool,
     /// Enables communication regulation feature. Chip select is released when the other
     /// HSPI requests access to the bus
@@ -275,9 +275,12 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         dma: Option<ChannelAndRequest<'d>>,
         config: Config,
         width: HspiWidth,
-        dual_quad: bool,
+        dual_memory_mode: bool,
     ) -> Self {
+        defmt::info!("config: {:?}", config);
         into_ref!(peri);
+
+        // let kernel_clock = T::frequency();
 
         //         #[cfg(octhspim_v1)]
         //         {
@@ -358,16 +361,20 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
         // System configuration
         rcc::enable_and_reset::<T>();
+
+        // Call this function just to check that the clock for HSPI1 is properly setup
+        let _ = T::frequency();
+
         while T::REGS.sr().read().busy() {}
 
         // Device configuration
         T::REGS.dcr1().modify(|w| {
+            w.set_mtyp(config.memory_type.into());
             w.set_devsize(config.device_size.into());
-            // w.set_mtyp(vals::MemType::from_bits(config.memory_type.into()));
             w.set_csht(config.chip_select_high_time.into());
-            w.set_dlybyp(config.delay_block_bypass);
             w.set_frck(false);
             w.set_ckmode(config.clock_mode);
+            w.set_dlybyp(config.delay_block_bypass);
         });
 
         T::REGS.dcr2().modify(|w| {
@@ -376,19 +383,16 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
         T::REGS.dcr3().modify(|w| {
             w.set_csbound(config.chip_select_boundary);
-            // #[cfg(octhspi_v1)]
-            // {
-            //     w.set_maxtran(config.max_transfer);
-            // }
+            w.set_maxtran(config.max_transfer);
         });
 
         T::REGS.dcr4().modify(|w| {
             w.set_refresh(config.refresh);
         });
 
-        // T::REGS.cr().modify(|w| {
-        //     w.set_fthres(vals::Threshold(config.fifo_threshold.into()));
-        // });
+        T::REGS.cr().modify(|w| {
+            w.set_fthres(config.fifo_threshold.into());
+        });
 
         // Wait for busy flag to clear
         while T::REGS.sr().read().busy() {}
@@ -397,17 +401,18 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
             w.set_prescaler(config.clock_prescaler);
         });
 
-        // T::REGS.cr().modify(|w| {
-        //     w.set_dmm(dual_quad);
-        // });
+        // The configuration of clock prescaler trigger automatically a calibration process
+        // So it is necessary to wait the calibration is complete
+        while T::REGS.sr().read().busy() {}
 
-        // T::REGS.tcr().modify(|w| {
-        //     w.set_sshift(match config.sample_shifting {
-        //         true => vals::SampleShift::HALFCYCLE,
-        //         false => vals::SampleShift::NONE,
-        //     });
-        //     w.set_dhqc(config.delay_hold_quarter_cycle);
-        // });
+        T::REGS.cr().modify(|w| {
+            w.set_dmm(dual_memory_mode);
+        });
+
+        T::REGS.tcr().modify(|w| {
+            w.set_sshift(config.sample_shifting);
+            w.set_dhqc(config.delay_hold_quarter_cycle);
+        });
 
         // Enable peripheral
         T::REGS.cr().modify(|w| {
@@ -468,9 +473,9 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         if let Some(ab) = command.alternate_bytes {
             T::REGS.abr().write(|v| v.set_alternate(ab));
             T::REGS.ccr().modify(|w| {
-                w.set_abmode(PhaseMode::from_bits(command.abwidth.into()));
+                w.set_abmode(command.abwidth.into());
                 w.set_abdtr(command.abdtr);
-                w.set_absize(SizeInBits::from_bits(command.absize.into()));
+                w.set_absize(command.absize.into());
             })
         }
 
@@ -492,15 +497,15 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
         // Configure instruction/address/data modes
         T::REGS.ccr().modify(|w| {
-            w.set_imode(PhaseMode::from_bits(command.iwidth.into()));
+            w.set_imode(command.iwidth.into());
             w.set_idtr(command.idtr);
-            w.set_isize(SizeInBits::from_bits(command.isize.into()));
+            w.set_isize(command.isize.into());
 
-            w.set_admode(PhaseMode::from_bits(command.adwidth.into()));
+            w.set_admode(command.adwidth.into());
             w.set_addtr(command.idtr);
-            w.set_adsize(SizeInBits::from_bits(command.adsize.into()));
+            w.set_adsize(command.adsize.into());
 
-            w.set_dmode(PhaseMode::from_bits(command.dwidth.into()));
+            w.set_dmode(command.dwidth.into());
             w.set_ddtr(command.ddtr);
         });
 
@@ -559,73 +564,73 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         Ok(())
     }
 
-    //     /// Blocking read with byte by byte data transfer
-    //     pub fn blocking_read<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
-    //         if buf.is_empty() {
-    //             return Err(HspiError::EmptyBuffer);
-    //         }
+    /// Blocking read with byte by byte data transfer
+    pub fn blocking_read<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-    //         // Wait for peripheral to be free
-    //         while T::REGS.sr().read().busy() {}
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-    //         // Ensure DMA is not enabled for this transaction
-    //         T::REGS.cr().modify(|w| {
-    //             w.set_dmaen(false);
-    //         });
+        // Ensure DMA is not enabled for this transaction
+        T::REGS.cr().modify(|w| {
+            w.set_dmaen(false);
+        });
 
-    //         self.configure_command(&transaction, Some(buf.len()))?;
+        self.configure_command(&transaction, Some(buf.len()))?;
 
-    //         let current_address = T::REGS.ar().read().address();
-    //         let current_instruction = T::REGS.ir().read().instruction();
+        let current_address = T::REGS.ar().read().address();
+        let current_instruction = T::REGS.ir().read().instruction();
 
-    //         // For a indirect read transaction, the transaction begins when the instruction/address is set
-    //         T::REGS.cr().modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTREAD));
-    //         if T::REGS.ccr().read().admode() == vals::PhaseMode::NONE {
-    //             T::REGS.ir().write(|v| v.set_instruction(current_instruction));
-    //         } else {
-    //             T::REGS.ar().write(|v| v.set_address(current_address));
-    //         }
+        // For a indirect read transaction, the transaction begins when the instruction/address is set
+        // T::REGS.cr().modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTREAD));
+        // if T::REGS.ccr().read().admode() == vals::PhaseMode::NONE {
+        //     T::REGS.ir().write(|v| v.set_instruction(current_instruction));
+        // } else {
+        //     T::REGS.ar().write(|v| v.set_address(current_address));
+        // }
 
-    //         for idx in 0..buf.len() {
-    //             while !T::REGS.sr().read().tcf() && !T::REGS.sr().read().ftf() {}
-    //             buf[idx] = unsafe { (T::REGS.dr().as_ptr() as *mut W).read_volatile() };
-    //         }
+        for idx in 0..buf.len() {
+            while !T::REGS.sr().read().tcf() && !T::REGS.sr().read().ftf() {}
+            buf[idx] = unsafe { (T::REGS.dr().as_ptr() as *mut W).read_volatile() };
+        }
 
-    //         while !T::REGS.sr().read().tcf() {}
-    //         T::REGS.fcr().write(|v| v.set_ctcf(true));
+        while !T::REGS.sr().read().tcf() {}
+        T::REGS.fcr().write(|v| v.set_ctcf(true));
 
-    //         Ok(())
-    //     }
+        Ok(())
+    }
 
-    //     /// Blocking write with byte by byte data transfer
-    //     pub fn blocking_write<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
-    //         if buf.is_empty() {
-    //             return Err(HspiError::EmptyBuffer);
-    //         }
+    /// Blocking write with byte by byte data transfer
+    pub fn blocking_write<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-    //         // Wait for peripheral to be free
-    //         while T::REGS.sr().read().busy() {}
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-    //         T::REGS.cr().modify(|w| {
-    //             w.set_dmaen(false);
-    //         });
+        T::REGS.cr().modify(|w| {
+            w.set_dmaen(false);
+        });
 
-    //         self.configure_command(&transaction, Some(buf.len()))?;
+        self.configure_command(&transaction, Some(buf.len()))?;
 
-    //         T::REGS
-    //             .cr()
-    //             .modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTWRITE));
+        // T::REGS
+        //     .cr()
+        //     .modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTWRITE));
 
-    //         for idx in 0..buf.len() {
-    //             while !T::REGS.sr().read().ftf() {}
-    //             unsafe { (T::REGS.dr().as_ptr() as *mut W).write_volatile(buf[idx]) };
-    //         }
+        for idx in 0..buf.len() {
+            while !T::REGS.sr().read().ftf() {}
+            unsafe { (T::REGS.dr().as_ptr() as *mut W).write_volatile(buf[idx]) };
+        }
 
-    //         while !T::REGS.sr().read().tcf() {}
-    //         T::REGS.fcr().write(|v| v.set_ctcf(true));
+        while !T::REGS.sr().read().tcf() {}
+        T::REGS.fcr().write(|v| v.set_ctcf(true));
 
-    //         Ok(())
-    //     }
+        Ok(())
+    }
 
     //     /// Set new bus configuration
     //     pub fn set_config(&mut self, config: &Config) {
@@ -855,6 +860,7 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
         config: Config,
     ) -> Self {
+        defmt::info!("config: {:?}", config);
         Self::new_inner(
             peri,
             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
@@ -1325,16 +1331,16 @@ foreach_peripheral!(
 //     }
 // }
 
-// /// Word sizes usable for OSPI.
-// #[allow(private_bounds)]
-// pub trait Word: word::Word {}
+/// Word sizes usable for OSPI.
+#[allow(private_bounds)]
+pub trait Word: word::Word {}
 
-// macro_rules! impl_word {
-//     ($T:ty) => {
-//         impl Word for $T {}
-//     };
-// }
+macro_rules! impl_word {
+    ($T:ty) => {
+        impl Word for $T {}
+    };
+}
 
-// impl_word!(u8);
-// impl_word!(u16);
-// impl_word!(u32);
+impl_word!(u8);
+impl_word!(u16);
+impl_word!(u32);
