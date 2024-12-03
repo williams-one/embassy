@@ -86,7 +86,6 @@ pub struct TransferConfig {
     /// Instruction width (IMODE)
     pub iwidth: HspiWidth,
     /// Instruction Id
-    // TODO(willy) capire perche' u32?
     pub instruction: Option<u32>,
     /// Number of Instruction Bytes
     pub isize: AddressSize,
@@ -862,7 +861,6 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
         config: Config,
     ) -> Self {
-        defmt::info!("config: {:?}", config);
         Self::new_inner(
             peri,
             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),

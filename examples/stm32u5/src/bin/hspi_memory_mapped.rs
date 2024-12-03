@@ -119,64 +119,65 @@ async fn main(_spawner: Spawner) {
     //     }
 }
 
-const MEMORY_PAGE_SIZE: usize = 256;
-
-const CMD_READ: u8 = 0x03;
-// const CMD_QUAD_READ: u8 = 0x6B;
-
-const CMD_PAGE_PROGRAM: u8 = 0x02;
-
-// const CMD_QUAD_WRITE_PG: u8 = 0x32;
-
-const CMD_READ_ID: u8 = 0x9F;
-
-const CMD_RESET_ENABLE: u8 = 0x66;
-const CMD_RESET: u8 = 0x99;
-
-const CMD_WRITE_ENABLE: u8 = 0x06;
-
-// const CMD_CHIP_ERASE: u8 = 0xC7;
-const CMD_SECTOR_ERASE: u8 = 0x20;
-// const CMD_BLOCK_ERASE_32K: u8 = 0x52;
-// const CMD_BLOCK_ERASE_64K: u8 = 0xD8;
-
-const CMD_READ_SR: u8 = 0x05;
-// const CMD_READ_CR: u8 = 0x35;
-
-// const CMD_WRITE_SR: u8 = 0x01;
-// const CMD_WRITE_CR: u8 = 0x31;
+// TODO(willy) capire come gestire fallimento/timeout delle richieste!!
 
 /// Custom implementation for MX66UW1G45G NOR flash memory from Macronix.
 /// Chip commands are hardcoded as they depend on the chip used.
+/// This implementation enables Octa I/O (OPI) and Double Transfer Rate (DTR)
 pub struct FlashMemory<I: Instance> {
     hspi: Hspi<'static, I, Blocking>,
 }
 
 impl<I: Instance> FlashMemory<I> {
+    const MEMORY_PAGE_SIZE: usize = 256;
+
+    const CMD_READ: u8 = 0x03;
+    // const CMD_QUAD_READ: u8 = 0x6B;
+
+    const CMD_PAGE_PROGRAM: u8 = 0x02;
+
+    // const CMD_QUAD_WRITE_PG: u8 = 0x32;
+
+    const CMD_READ_ID: u8 = 0x9F;
+
+    const CMD_RESET_ENABLE: u8 = 0x66;
+    const CMD_RESET: u8 = 0x99;
+
+    const CMD_WRITE_ENABLE: u8 = 0x06;
+
+    // const CMD_CHIP_ERASE: u8 = 0xC7;
+    const CMD_SECTOR_ERASE: u8 = 0x20;
+    // const CMD_BLOCK_ERASE_32K: u8 = 0x52;
+    // const CMD_BLOCK_ERASE_64K: u8 = 0xD8;
+
+    const CMD_READ_SR: u8 = 0x05;
+
+    const CMD_READ_CR2: u8 = 0x71;
+    const CMD_WRITE_CR2: u8 = 0x72;
+
+    // const CMD_WRITE_SR: u8 = 0x01;
+    // const CMD_WRITE_CR: u8 = 0x31;
+
+    const CR2_REG1_ADDR: u32 = 0x00000000;
+    const CR2_DOPI: u8 = 0x02;
+
+    const CR2_REG3_ADDR: u32 = 0x00000300;
+    const CR2_DC_6_CYCLES: u8 = 0x06;
+
     pub async fn new(hspi: Hspi<'static, I, Blocking>) -> Self {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
-        info!("Memory reset");
-        // memory.enable_octo();
+        memory.enable_dtr_opi().await;
         memory
     }
 
-    // async fn enable_opi_mode(&mut self) {
-    //     // Enter qpi mode
-    //     self.exec_command(0x38).await;
-
-    //     // Set read param
-    //     let transaction = TransferConfig {
-    //         iwidth: OspiWidth::QUAD,
-    //         dwidth: OspiWidth::QUAD,
-    //         instruction: Some(0xC0),
-    //         ..Default::default()
-    //     };
-    //     self.enable_write().await;
-    //     self.ospi.blocking_write(&[0x30_u8], transaction).unwrap();
-    //     self.wait_write_finish();
-    // }
+    async fn enable_dtr_opi(&mut self) {
+        self.write_enable().await;
+        self.write_cr2(Self::CR2_REG3_ADDR, Self::CR2_DC_6_CYCLES);
+        self.write_enable().await;
+        self.write_cr2(Self::CR2_REG1_ADDR, Self::CR2_DOPI);
+    }
 
     //     pub async fn disable_mm(&mut self) {
     //         self.ospi.disable_memory_mapped_mode();
@@ -247,22 +248,22 @@ impl<I: Instance> FlashMemory<I> {
 
     pub async fn reset_memory(&mut self) {
         // servono entrambi i comandi?
-        // self.exec_command_4(CMD_RESET_ENABLE).await;
-        // self.exec_command_4(CMD_RESET).await;
-        self.exec_command(CMD_RESET_ENABLE).await;
-        self.exec_command(CMD_RESET).await;
+        // self.exec_command_4(Self::CMD_RESET_ENABLE).await;
+        // self.exec_command_4(Self::CMD_RESET).await;
+        self.exec_command(Self::CMD_RESET_ENABLE).await;
+        self.exec_command(Self::CMD_RESET).await;
         self.wait_write_finish();
     }
 
-    pub async fn enable_write(&mut self) {
-        self.exec_command(CMD_WRITE_ENABLE).await;
+    pub async fn write_enable(&mut self) {
+        self.exec_command(Self::CMD_WRITE_ENABLE).await;
     }
 
     pub fn read_id(&mut self) -> [u8; 3] {
         let mut buffer = [0; 3];
         let transaction: TransferConfig = TransferConfig {
             iwidth: HspiWidth::SING,
-            instruction: Some(CMD_READ_ID as u32),
+            instruction: Some(Self::CMD_READ_ID as u32),
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
@@ -278,7 +279,7 @@ impl<I: Instance> FlashMemory<I> {
     //             isize: AddressSize::_8Bit,
     //             adwidth: OspiWidth::NONE,
     //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(CMD_READ_ID as u32),
+    //             instruction: Some(Self::CMD_READ_ID as u32),
     //             ..Default::default()
     //         };
     //         info!("Reading id: 0x{:X}", transaction.instruction);
@@ -289,7 +290,7 @@ impl<I: Instance> FlashMemory<I> {
     pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
         let transaction = TransferConfig {
             iwidth: HspiWidth::SING,
-            instruction: Some(CMD_READ as u32),
+            instruction: Some(Self::CMD_READ as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
             adsize: AddressSize::_24bit,
@@ -311,7 +312,7 @@ impl<I: Instance> FlashMemory<I> {
     //         adwidth: OspiWidth::SING,
     //         adsize: AddressSize::_24bit,
     //         dwidth: OspiWidth::QUAD,
-    //         instruction: Some(CMD_QUAD_READ as u32),
+    //         instruction: Some(Self::CMD_QUAD_READ as u32),
     //         address: Some(addr),
     //         dummy: DummyCycles::_8,
     //         ..Default::default()
@@ -337,7 +338,7 @@ impl<I: Instance> FlashMemory<I> {
             adsize: AddressSize::_24bit,
             ..Default::default()
         };
-        self.enable_write().await;
+        self.write_enable().await;
         self.hspi.command(&transaction).await.unwrap();
         self.wait_write_finish();
         info!("Erase operation completed");
@@ -345,7 +346,7 @@ impl<I: Instance> FlashMemory<I> {
 
     pub async fn erase_sector(&mut self, addr: u32) {
         info!("Erasing 4K sector at address: 0x{:X}", addr);
-        self.perform_erase(addr, CMD_SECTOR_ERASE).await;
+        self.perform_erase(addr, Self::CMD_SECTOR_ERASE).await;
     }
 
     //     pub async fn erase_block_32k(&mut self, addr: u32) {
@@ -357,12 +358,12 @@ impl<I: Instance> FlashMemory<I> {
     //     }
 
     //     pub async fn erase_chip(&mut self) {
-    //         self.exec_command(CMD_CHIP_ERASE).await;
+    //         self.exec_command(Self::CMD_CHIP_ERASE).await;
     //     }
 
     async fn write_page(&mut self, addr: u32, buffer: &[u8], len: usize, use_dma: bool) {
         assert!(
-            (len as u32 + (addr & 0x000000ff)) <= MEMORY_PAGE_SIZE as u32,
+            (len as u32 + (addr & 0x000000ff)) <= Self::MEMORY_PAGE_SIZE as u32,
             "write_page(): page write length exceeds page boundary (len = {}, addr = {:X}",
             len,
             addr
@@ -370,14 +371,14 @@ impl<I: Instance> FlashMemory<I> {
 
         let transaction = TransferConfig {
             iwidth: HspiWidth::SING,
-            instruction: Some(CMD_PAGE_PROGRAM as u32),
+            instruction: Some(Self::CMD_PAGE_PROGRAM as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
             adsize: AddressSize::_24bit,
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
-        self.enable_write().await;
+        self.write_enable().await;
         if use_dma {
             self.hspi.blocking_write(buffer, transaction).unwrap();
         } else {
@@ -392,7 +393,7 @@ impl<I: Instance> FlashMemory<I> {
         let mut chunk_start = 0;
 
         while left > 0 {
-            let max_chunk_size = MEMORY_PAGE_SIZE - (place & 0x000000ff) as usize;
+            let max_chunk_size = Self::MEMORY_PAGE_SIZE - (place & 0x000000ff) as usize;
             let chunk_size = if left >= max_chunk_size { max_chunk_size } else { left };
             let chunk = &buffer[chunk_start..(chunk_start + chunk_size)];
             self.write_page(place, chunk, chunk_size, use_dma).await;
@@ -416,12 +417,12 @@ impl<I: Instance> FlashMemory<I> {
     //         adsize: AddressSize::_24bit,
     //         adwidth: OspiWidth::SING,
     //         dwidth: OspiWidth::QUAD,
-    //         instruction: Some(CMD_QUAD_WRITE_PG as u32),
+    //         instruction: Some(Self::CMD_QUAD_WRITE_PG as u32),
     //         address: Some(addr),
     //         dummy: DummyCycles::_0,
     //         ..Default::default()
     //     };
-    //     self.enable_write().await;
+    //     self.write_enable().await;
     //     if use_dma {
     //         self.ospi.blocking_write(buffer, transaction).unwrap();
     //     } else {
@@ -446,19 +447,18 @@ impl<I: Instance> FlashMemory<I> {
     //     }
     // }
 
-    fn read_register(&mut self, cmd: u8) -> u8 {
-        let mut buffer = [0; 1];
-        let transaction: TransferConfig = TransferConfig {
-            iwidth: HspiWidth::SING,
-            instruction: Some(cmd as u32),
-            isize: AddressSize::_8Bit,
-            dwidth: HspiWidth::SING,
-            ..Default::default()
-        };
-        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
-        // info!("Read MX66LM1G45G register: 0x{:x}", buffer[0]);
-        buffer[0]
-    }
+    // fn read_register(&mut self, cmd: u8) -> u8 {
+    //     let mut buffer = [0; 1];
+    //     let transaction: TransferConfig = TransferConfig {
+    //         iwidth: HspiWidth::SING,
+    //         instruction: Some(cmd as u32),
+    //         dwidth: HspiWidth::SING,
+    //         ..Default::default()
+    //     };
+    //     self.hspi.blocking_read(&mut buffer, transaction).unwrap();
+    //     // info!("Read MX66LM1G45G register: 0x{:x}", buffer[0]);
+    //     buffer[0]
+    // }
 
     // fn write_register(&mut self, cmd: u8, value: u8) {
     //     let buffer = [value; 1];
@@ -477,18 +477,49 @@ impl<I: Instance> FlashMemory<I> {
     // }
 
     pub fn read_sr(&mut self) -> u8 {
-        self.read_register(CMD_READ_SR)
+        let mut buffer = [0; 1];
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(Self::CMD_READ_SR as u32),
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
+        // info!("Read MX66LM1G45G SR register: 0x{:x}", buffer[0]);
+        buffer[0]
     }
 
-    //     pub fn read_cr(&mut self) -> u8 {
-    //         self.read_register(CMD_READ_CR)
-    //     }
+    pub fn read_cr2(&mut self, addr: u32) -> u8 {
+        let mut buffer = [0; 1];
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(Self::CMD_READ_CR2 as u32),
+            adwidth: HspiWidth::SING,
+            address: Some(addr),
+            adsize: AddressSize::_32bit,
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
+        info!("Read MX66LM1G45G CR2[0x{:X}] register: 0x{:x}", addr, buffer[0]);
+        buffer[0]
+    }
 
     //     pub fn write_sr(&mut self, value: u8) {
-    //         self.write_register(CMD_WRITE_SR, value);
+    //         self.write_register(Self::CMD_WRITE_SR, value);
     //     }
 
-    //     pub fn write_cr(&mut self, value: u8) {
-    //         self.write_register(CMD_WRITE_CR, value);
-    //     }
+    pub fn write_cr2(&mut self, addr: u32, value: u8) {
+        let buffer = [value; 1];
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(Self::CMD_WRITE_CR2 as u32),
+            adwidth: HspiWidth::SING,
+            address: Some(addr),
+            adsize: AddressSize::_32bit,
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        self.hspi.blocking_write(&buffer, transaction).unwrap();
+    }
 }
