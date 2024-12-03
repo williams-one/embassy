@@ -87,27 +87,29 @@ async fn main(_spawner: Spawner) {
 
     let flash_id = flash.read_id();
     info!("FLASH ID: {=[u8]:x}", flash_id);
-    let mut wr_buf = [0u8; 8];
-    for i in 0..8 {
-        wr_buf[i] = i as u8;
+    let mut wr_buf = [0u8; 16];
+    for i in 0..wr_buf.len() {
+        wr_buf[i] = (i + 1) as u8;
     }
-    let mut rd_buf = [0u8; 8];
-    // flash.erase_sector(0).await;
-    // flash.write_memory(0, &wr_buf, true).await;
-    flash.read_memory(4, &mut rd_buf, false);
-    // info!("WRITE BUF: {=[u8]:#X}", wr_buf);
+    let mut rd_buf = [0u8; 16];
+    embassy_time::Timer::after_millis(100).await;
+    flash.erase_sector(0).await;
+    flash.write_memory(0, &wr_buf, true).await;
+    flash.read_memory(0, &mut rd_buf, false);
+    info!("WRITE BUF: {=[u8]:#X}", wr_buf);
     info!("READ BUF: {=[u8]:#X}", rd_buf);
-    //     flash.enable_mm().await;
-    //     info!("Enabled memory mapped mode");
 
-    //     let first_u32 = unsafe { *(0x90000000 as *const u32) };
-    //     assert_eq!(first_u32, 0x03020100);
+    // flash.enable_mm().await;
+    // info!("Enabled memory mapped mode");
 
-    //     let second_u32 = unsafe { *(0x90000004 as *const u32) };
-    //     assert_eq!(second_u32, 0x07060504);
-    //     flash.disable_mm().await;
+    // let first_u32 = unsafe { *(0xA0000000 as *const u32) };
+    // assert_eq!(first_u32, 0x03020100);
 
-    //     info!("DONE");
+    // let second_u32 = unsafe { *(0xA0000004 as *const u32) };
+    // assert_eq!(second_u32, 0x07060504);
+    // flash.disable_mm().await;
+
+    info!("DONE");
     //     // Output pin PE3
     //     let mut led = Output::new(p.PE3, Level::Low, Speed::Low);
 
@@ -117,10 +119,12 @@ async fn main(_spawner: Spawner) {
     //     }
 }
 
-// const MEMORY_PAGE_SIZE: usize = 8;
+const MEMORY_PAGE_SIZE: usize = 256;
 
 const CMD_READ: u8 = 0x03;
 // const CMD_QUAD_READ: u8 = 0x6B;
+
+const CMD_PAGE_PROGRAM: u8 = 0x02;
 
 // const CMD_QUAD_WRITE_PG: u8 = 0x32;
 
@@ -158,21 +162,21 @@ impl<I: Instance> FlashMemory<I> {
         memory
     }
 
-    //     async fn qpi_mode(&mut self) {
-    //         // Enter qpi mode
-    //         self.exec_command(0x38).await;
+    // async fn enable_opi_mode(&mut self) {
+    //     // Enter qpi mode
+    //     self.exec_command(0x38).await;
 
-    //         // Set read param
-    //         let transaction = TransferConfig {
-    //             iwidth: OspiWidth::QUAD,
-    //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(0xC0),
-    //             ..Default::default()
-    //         };
-    //         self.enable_write().await;
-    //         self.ospi.blocking_write(&[0x30_u8], transaction).unwrap();
-    //         self.wait_write_finish();
-    //     }
+    //     // Set read param
+    //     let transaction = TransferConfig {
+    //         iwidth: OspiWidth::QUAD,
+    //         dwidth: OspiWidth::QUAD,
+    //         instruction: Some(0xC0),
+    //         ..Default::default()
+    //     };
+    //     self.enable_write().await;
+    //     self.ospi.blocking_write(&[0x30_u8], transaction).unwrap();
+    //     self.wait_write_finish();
+    // }
 
     //     pub async fn disable_mm(&mut self) {
     //         self.ospi.disable_memory_mapped_mode();
@@ -217,19 +221,19 @@ impl<I: Instance> FlashMemory<I> {
     //         self.write_cr(cr & (!(0x02)));
     //     }
 
-    async fn exec_command_4(&mut self, cmd: u8) {
-        // let transaction = TransferConfig {
-        //     iwidth: HspiWidth::OCTO,
-        //     adwidth: OspiWidth::NONE,
-        //     // adsize: AddressSize::_24bit,
-        //     dwidth: OspiWidth::NONE,
-        //     instruction: Some(cmd as u32),
-        //     address: None,
-        //     dummy: DummyCycles::_0,
-        //     ..Default::default()
-        // };
-        // self.ospi.command(&transaction).await.unwrap();
-    }
+    // async fn exec_command_4(&mut self, cmd: u8) {
+    // let transaction = TransferConfig {
+    //     iwidth: HspiWidth::OCTO,
+    //     adwidth: OspiWidth::NONE,
+    //     // adsize: AddressSize::_24bit,
+    //     dwidth: OspiWidth::NONE,
+    //     instruction: Some(cmd as u32),
+    //     address: None,
+    //     dummy: DummyCycles::_0,
+    //     ..Default::default()
+    // };
+    // self.ospi.command(&transaction).await.unwrap();
+    // }
 
     async fn exec_command(&mut self, cmd: u8) {
         let transaction = TransferConfig {
@@ -300,6 +304,7 @@ impl<I: Instance> FlashMemory<I> {
         }
     }
 
+    // in OCTO mode
     // pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
     //     let transaction = TransferConfig {
     //         iwidth: OspiWidth::SING,
@@ -328,8 +333,8 @@ impl<I: Instance> FlashMemory<I> {
             iwidth: HspiWidth::SING,
             instruction: Some(cmd as u32),
             adwidth: HspiWidth::SING,
-            adsize: AddressSize::_24bit,
             address: Some(addr),
+            adsize: AddressSize::_24bit,
             ..Default::default()
         };
         self.enable_write().await;
@@ -355,32 +360,75 @@ impl<I: Instance> FlashMemory<I> {
     //         self.exec_command(CMD_CHIP_ERASE).await;
     //     }
 
-    //     async fn write_page(&mut self, addr: u32, buffer: &[u8], len: usize, use_dma: bool) {
-    //         assert!(
-    //             (len as u32 + (addr & 0x000000ff)) <= MEMORY_PAGE_SIZE as u32,
-    //             "write_page(): page write length exceeds page boundary (len = {}, addr = {:X}",
-    //             len,
-    //             addr
-    //         );
+    async fn write_page(&mut self, addr: u32, buffer: &[u8], len: usize, use_dma: bool) {
+        assert!(
+            (len as u32 + (addr & 0x000000ff)) <= MEMORY_PAGE_SIZE as u32,
+            "write_page(): page write length exceeds page boundary (len = {}, addr = {:X}",
+            len,
+            addr
+        );
 
-    //         let transaction = TransferConfig {
-    //             iwidth: OspiWidth::SING,
-    //             adsize: AddressSize::_24bit,
-    //             adwidth: OspiWidth::SING,
-    //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(CMD_QUAD_WRITE_PG as u32),
-    //             address: Some(addr),
-    //             dummy: DummyCycles::_0,
-    //             ..Default::default()
-    //         };
-    //         self.enable_write().await;
-    //         if use_dma {
-    //             self.ospi.blocking_write(buffer, transaction).unwrap();
-    //         } else {
-    //             self.ospi.blocking_write(buffer, transaction).unwrap();
-    //         }
-    //         self.wait_write_finish();
+        let transaction = TransferConfig {
+            iwidth: HspiWidth::SING,
+            instruction: Some(CMD_PAGE_PROGRAM as u32),
+            adwidth: HspiWidth::SING,
+            address: Some(addr),
+            adsize: AddressSize::_24bit,
+            dwidth: HspiWidth::SING,
+            ..Default::default()
+        };
+        self.enable_write().await;
+        if use_dma {
+            self.hspi.blocking_write(buffer, transaction).unwrap();
+        } else {
+            self.hspi.blocking_write(buffer, transaction).unwrap();
+        }
+        self.wait_write_finish();
+    }
+
+    pub async fn write_memory(&mut self, addr: u32, buffer: &[u8], use_dma: bool) {
+        let mut left = buffer.len();
+        let mut place = addr;
+        let mut chunk_start = 0;
+
+        while left > 0 {
+            let max_chunk_size = MEMORY_PAGE_SIZE - (place & 0x000000ff) as usize;
+            let chunk_size = if left >= max_chunk_size { max_chunk_size } else { left };
+            let chunk = &buffer[chunk_start..(chunk_start + chunk_size)];
+            self.write_page(place, chunk, chunk_size, use_dma).await;
+            place += chunk_size as u32;
+            left -= chunk_size;
+            chunk_start += chunk_size;
+        }
+    }
+
+    // write flash in octo mode
+    // async fn write_page(&mut self, addr: u32, buffer: &[u8], len: usize, use_dma: bool) {
+    //     assert!(
+    //         (len as u32 + (addr & 0x000000ff)) <= MEMORY_PAGE_SIZE as u32,
+    //         "write_page(): page write length exceeds page boundary (len = {}, addr = {:X}",
+    //         len,
+    //         addr
+    //     );
+
+    //     let transaction = TransferConfig {
+    //         iwidth: OspiWidth::SING,
+    //         adsize: AddressSize::_24bit,
+    //         adwidth: OspiWidth::SING,
+    //         dwidth: OspiWidth::QUAD,
+    //         instruction: Some(CMD_QUAD_WRITE_PG as u32),
+    //         address: Some(addr),
+    //         dummy: DummyCycles::_0,
+    //         ..Default::default()
+    //     };
+    //     self.enable_write().await;
+    //     if use_dma {
+    //         self.ospi.blocking_write(buffer, transaction).unwrap();
+    //     } else {
+    //         self.ospi.blocking_write(buffer, transaction).unwrap();
     //     }
+    //     self.wait_write_finish();
+    // }
 
     // pub async fn write_memory(&mut self, addr: u32, buffer: &[u8], use_dma: bool) {
     //     let mut left = buffer.len();
@@ -412,21 +460,21 @@ impl<I: Instance> FlashMemory<I> {
         buffer[0]
     }
 
-    fn write_register(&mut self, cmd: u8, value: u8) {
-        let buffer = [value; 1];
-        let transaction: TransferConfig = TransferConfig {
-            iwidth: HspiWidth::SING,
-            isize: AddressSize::_8Bit,
-            instruction: Some(cmd as u32),
-            adsize: AddressSize::_24bit,
-            adwidth: HspiWidth::NONE,
-            dwidth: HspiWidth::SING,
-            address: None,
-            dummy: DummyCycles::_0,
-            ..Default::default()
-        };
-        self.hspi.blocking_write(&buffer, transaction).unwrap();
-    }
+    // fn write_register(&mut self, cmd: u8, value: u8) {
+    //     let buffer = [value; 1];
+    //     let transaction: TransferConfig = TransferConfig {
+    //         iwidth: HspiWidth::SING,
+    //         isize: AddressSize::_8Bit,
+    //         instruction: Some(cmd as u32),
+    //         adsize: AddressSize::_24bit,
+    //         adwidth: HspiWidth::NONE,
+    //         dwidth: HspiWidth::SING,
+    //         address: None,
+    //         dummy: DummyCycles::_0,
+    //         ..Default::default()
+    //     };
+    //     self.hspi.blocking_write(&buffer, transaction).unwrap();
+    // }
 
     pub fn read_sr(&mut self) -> u8 {
         self.read_register(CMD_READ_SR)
