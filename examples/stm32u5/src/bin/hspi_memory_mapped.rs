@@ -99,14 +99,16 @@ async fn main(_spawner: Spawner) {
     info!("WRITE BUF: {=[u8]:#X}", wr_buf);
     info!("READ BUF: {=[u8]:#X}", rd_buf);
 
-    // flash.enable_mm().await;
-    // info!("Enabled memory mapped mode");
+    flash.enable_mm().await;
+    info!("Enabled memory mapped mode");
 
-    // let first_u32 = unsafe { *(0xA0000000 as *const u32) };
+    let first_u32 = unsafe { *(0xA0000000 as *const u32) };
+    info!("first_u32: 0x{=u32:X}", first_u32);
     // assert_eq!(first_u32, 0x03020100);
 
-    // let second_u32 = unsafe { *(0xA0000004 as *const u32) };
+    let second_u32 = unsafe { *(0xA0000004 as *const u32) };
     // assert_eq!(second_u32, 0x07060504);
+    info!("second_u32: 0x{=u32:X}", second_u32);
     // flash.disable_mm().await;
 
     info!("DONE");
@@ -139,6 +141,8 @@ impl<I: Instance> FlashMemory<I> {
     // const CMD_QUAD_WRITE_PG: u8 = 0x32;
 
     const CMD_READ_ID: u8 = 0x9F;
+    const CMD_READ_ID_DOPI: u16 = 0x9F60;
+    const CMD_OCTA_READ_DTR: u16 = 0xEE11;
 
     const CMD_RESET_ENABLE: u8 = 0x66;
     const CMD_RESET: u8 = 0x99;
@@ -168,7 +172,7 @@ impl<I: Instance> FlashMemory<I> {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
-        memory.enable_dtr_opi().await;
+        // memory.enable_dtr_opi().await;
         memory
     }
 
@@ -183,32 +187,35 @@ impl<I: Instance> FlashMemory<I> {
     //         self.ospi.disable_memory_mapped_mode();
     //     }
 
-    //     pub async fn enable_mm(&mut self) {
-    //         self.qpi_mode().await;
+    pub async fn enable_mm(&mut self) {
+        // In teoria non e' necessario
+        // self.qpi_mode().await;
 
-    //         let read_config = TransferConfig {
-    //             iwidth: OspiWidth::QUAD,
-    //             isize: AddressSize::_8Bit,
-    //             adwidth: OspiWidth::QUAD,
-    //             adsize: AddressSize::_24bit,
-    //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(0x0B), // Fast read in QPI mode
-    //             dummy: DummyCycles::_8,
-    //             ..Default::default()
-    //         };
+        let read_config = TransferConfig {
+            iwidth: HspiWidth::OCTO,
+            instruction: Some(Self::CMD_OCTA_READ_DTR as u32),
+            isize: AddressSize::_16Bit,
+            idtr: true,
+            adwidth: HspiWidth::OCTO,
+            adsize: AddressSize::_32Bit,
+            addtr: true,
+            dwidth: HspiWidth::OCTO,
+            ddtr: true,
+            ..Default::default()
+        };
 
-    //         let write_config = TransferConfig {
-    //             iwidth: OspiWidth::SING,
-    //             isize: AddressSize::_8Bit,
-    //             adwidth: OspiWidth::SING,
-    //             adsize: AddressSize::_24bit,
-    //             dwidth: OspiWidth::QUAD,
-    //             instruction: Some(0x32), // Write config
-    //             dummy: DummyCycles::_0,
-    //             ..Default::default()
-    //         };
-    //         self.ospi.enable_memory_mapped_mode(read_config, write_config).unwrap();
-    //     }
+        let write_config = TransferConfig {
+            // iwidth: OspiWidth::SING,
+            // isize: AddressSize::_8Bit,
+            // adwidth: OspiWidth::SING,
+            // adsize: AddressSize::_24bit,
+            // dwidth: OspiWidth::QUAD,
+            // instruction: Some(0x32), // Write config
+            // dummy: DummyCycles::_0,
+            ..Default::default()
+        };
+        self.hspi.enable_memory_mapped_mode(read_config, write_config).unwrap();
+    }
 
     //     fn enable_quad(&mut self) {
     //         let cr = self.read_cr();
@@ -272,6 +279,26 @@ impl<I: Instance> FlashMemory<I> {
         buffer
     }
 
+    pub fn read_id_dopi(&mut self) -> [u8; 3] {
+        let mut buffer = [0; 3];
+        let transaction: TransferConfig = TransferConfig {
+            iwidth: HspiWidth::OCTO,
+            instruction: Some(Self::CMD_READ_ID_DOPI as u32),
+            isize: AddressSize::_16Bit,
+            idtr: true,
+            adwidth: HspiWidth::OCTO,
+            address: Some(0),
+            adsize: AddressSize::_32Bit,
+            addtr: true,
+            dwidth: HspiWidth::OCTO,
+            ddtr: true,
+            ..Default::default()
+        };
+        info!("Reading flash id: 0x{:X}", transaction.instruction.unwrap());
+        self.hspi.blocking_read(&mut buffer, transaction).unwrap();
+        buffer
+    }
+
     //     pub fn read_id_4(&mut self) -> [u8; 3] {
     //         let mut buffer = [0; 3];
     //         let transaction: TransferConfig = TransferConfig {
@@ -293,7 +320,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(Self::CMD_READ as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
-            adsize: AddressSize::_24bit,
+            adsize: AddressSize::_24Bit,
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
@@ -335,7 +362,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(cmd as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
-            adsize: AddressSize::_24bit,
+            adsize: AddressSize::_24Bit,
             ..Default::default()
         };
         self.write_enable().await;
@@ -374,7 +401,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(Self::CMD_PAGE_PROGRAM as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
-            adsize: AddressSize::_24bit,
+            adsize: AddressSize::_24Bit,
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
@@ -496,7 +523,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(Self::CMD_READ_CR2 as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
-            adsize: AddressSize::_32bit,
+            adsize: AddressSize::_32Bit,
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
@@ -516,7 +543,7 @@ impl<I: Instance> FlashMemory<I> {
             instruction: Some(Self::CMD_WRITE_CR2 as u32),
             adwidth: HspiWidth::SING,
             address: Some(addr),
-            adsize: AddressSize::_32bit,
+            adsize: AddressSize::_32Bit,
             dwidth: HspiWidth::SING,
             ..Default::default()
         };
