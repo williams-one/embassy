@@ -1095,7 +1095,9 @@ fn main() {
         (("hspi", "IO13"), quote!(crate::hspi::D13Pin)),
         (("hspi", "IO14"), quote!(crate::hspi::D14Pin)),
         (("hspi", "IO15"), quote!(crate::hspi::D15Pin)),
-        (("hspi", "DQS"), quote!(crate::hspi::DQSPin)),
+        (("hspi", "DQS0"), quote!(crate::hspi::DQSPin)),
+        // capire cosa fare per DQS1
+        // (("hspi", "DQS1"), quote!(crate::hspi::DQSPin)),
         (("hspi", "NCS"), quote!(crate::hspi::NSSPin)),
         (("hspi", "CLK"), quote!(crate::hspi::SckPin)),
         (("hspi", "NCLK"), quote!(crate::hspi::NckPin)),

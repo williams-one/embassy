@@ -1282,11 +1282,11 @@ dma_trait!(HspiDma, Instance);
 
 // pin_trait_impl!(embassy_stm32::hspi::DQSPin, HSPI1, PI2, 8u8);
 
-impl crate::hspi::DQSPin<crate::peripherals::HSPI1> for crate::peripherals::PI2 {
-    fn af_num(&self) -> u8 {
-        8u8
-    }
-}
+// impl crate::hspi::DQSPin<crate::peripherals::HSPI1> for crate::peripherals::PI2 {
+//     fn af_num(&self) -> u8 {
+//         8u8
+//     }
+// }
 
 // // Hard-coded the octhspi index, for OCTOSPIM
 // #[cfg(octhspim_v1)]
