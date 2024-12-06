@@ -19,6 +19,16 @@ use embassy_stm32::{pac, rcc, Config};
 // use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
+// pin_trait_impl!(embassy_stm32::hspi::DQSPin, HSPI1, PI2, 8u8);
+
+// (crate::$mod:ident::$trait:ident$(<$mode:ident>)?, $instance:ident, $pin:ident, $af:expr) => {
+//     impl crate::$mod::$trait<crate::peripherals::$instance $(, crate::$mod::$mode)?> for crate::peripherals::$pin {
+//         fn af_num(&self) -> u8 {
+//             $af
+//         }
+//     }
+// };
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     // RCC config
@@ -40,7 +50,7 @@ async fn main(_spawner: Spawner) {
     config.rcc.pll2 = Some(rcc::Pll {
         source: rcc::PllSource::HSE,
         prediv: rcc::PllPreDiv::DIV4,
-        mul: rcc::PllMul::MUL50, // MUL66: Running at full speed causes read/write errors!!
+        mul: rcc::PllMul::MUL66, // MUL66: Running at full speed causes read/write errors!!
         divp: None,
         divq: Some(rcc::PllDiv::DIV2),
         divr: None,
@@ -78,6 +88,7 @@ async fn main(_spawner: Spawner) {
         p.PI0,
         p.PI1,
         p.PH9,
+        p.PI2,
         ospi_config,
     );
 
@@ -85,18 +96,18 @@ async fn main(_spawner: Spawner) {
 
     let mut flash = FlashMemory::new(hspi).await;
 
-    let flash_id = flash.read_id();
-    info!("FLASH ID: {=[u8]:x}", flash_id);
-    let mut wr_buf = [0u8; 16];
-    for i in 0..wr_buf.len() {
-        wr_buf[i] = (i + 1) as u8;
-    }
+    // let flash_id = flash.read_id_dopi();
+    // info!("FLASH ID: {=[u8]:x}", flash_id);
+    // let mut wr_buf = [0u8; 16];
+    // for i in 0..wr_buf.len() {
+    //     wr_buf[i] = (i + 1) as u8;
+    // }
     let mut rd_buf = [0u8; 16];
-    embassy_time::Timer::after_millis(100).await;
-    flash.erase_sector(0).await;
-    flash.write_memory(0, &wr_buf, true).await;
-    flash.read_memory(0, &mut rd_buf, false);
-    info!("WRITE BUF: {=[u8]:#X}", wr_buf);
+    // embassy_time::Timer::after_millis(100).await;
+    // // flash.erase_sector(0).await;
+    // // flash.write_memory(0, &wr_buf, true).await;
+    // flash.read_memory(0, &mut rd_buf, false);
+    // info!("WRITE BUF: {=[u8]:#X}", wr_buf);
     info!("READ BUF: {=[u8]:#X}", rd_buf);
 
     flash.enable_mm().await;
@@ -172,7 +183,7 @@ impl<I: Instance> FlashMemory<I> {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
-        // memory.enable_dtr_opi().await;
+        memory.enable_dtr_opi().await;
         memory
     }
 
@@ -190,6 +201,7 @@ impl<I: Instance> FlashMemory<I> {
     pub async fn enable_mm(&mut self) {
         // In teoria non e' necessario
         // self.qpi_mode().await;
+        // self.enable_dtr_opi().await;
 
         let read_config = TransferConfig {
             iwidth: HspiWidth::OCTO,
@@ -205,13 +217,14 @@ impl<I: Instance> FlashMemory<I> {
         };
 
         let write_config = TransferConfig {
-            // iwidth: OspiWidth::SING,
-            // isize: AddressSize::_8Bit,
-            // adwidth: OspiWidth::SING,
-            // adsize: AddressSize::_24bit,
-            // dwidth: OspiWidth::QUAD,
-            // instruction: Some(0x32), // Write config
-            // dummy: DummyCycles::_0,
+            iwidth: HspiWidth::OCTO,
+            isize: AddressSize::_16Bit,
+            idtr: true,
+            adwidth: HspiWidth::OCTO,
+            adsize: AddressSize::_32Bit,
+            addtr: true,
+            dwidth: HspiWidth::OCTO,
+            ddtr: true,
             ..Default::default()
         };
         self.hspi.enable_memory_mapped_mode(read_config, write_config).unwrap();

@@ -7,7 +7,7 @@ pub mod enums;
 
 use core::marker::PhantomData;
 
-// use embassy_embedded_hal::{GetConfig, SetConfig};
+use embassy_embedded_hal::{GetConfig, SetConfig};
 use embassy_hal_internal::{into_ref, PeripheralRef};
 pub use enums::*; // TODO include anche vals
                   // use stm32_metapac::octhspi::vals::{PhaseMode, SizeInBits};
@@ -200,28 +200,27 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         while reg.sr().read().busy() {}
 
         reg.ccr().modify(|r| {
-            r.set_dqse(false);
-            r.set_sioo(true);
+            r.set_dqse(true);
         });
 
         // Set writing configurations, there are separate registers for write configurations in memory mapped mode
-        // reg.wccr().modify(|w| {
-        //     w.set_imode(PhaseMode::from_bits(write_config.iwidth.into()));
-        //     w.set_idtr(write_config.idtr);
-        //     w.set_isize(SizeInBits::from_bits(write_config.isize.into()));
+        reg.wccr().modify(|w| {
+            w.set_imode(write_config.iwidth.into());
+            w.set_idtr(write_config.idtr);
+            w.set_isize(write_config.isize.into());
 
-        //     w.set_admode(PhaseMode::from_bits(write_config.adwidth.into()));
-        //     w.set_addtr(write_config.idtr);
-        //     w.set_adsize(SizeInBits::from_bits(write_config.adsize.into()));
+            w.set_admode(write_config.adwidth.into());
+            w.set_addtr(write_config.idtr);
+            w.set_adsize(write_config.adsize.into());
 
-        //     w.set_dmode(PhaseMode::from_bits(write_config.dwidth.into()));
-        //     w.set_ddtr(write_config.ddtr);
+            w.set_dmode(write_config.dwidth.into());
+            w.set_ddtr(write_config.ddtr);
 
-        //     w.set_abmode(PhaseMode::from_bits(write_config.abwidth.into()));
-        //     w.set_dqse(true);
-        // });
+            w.set_abmode(write_config.abwidth.into());
+            w.set_dqse(true);
+        });
 
-        // reg.wtcr().modify(|w| w.set_dcyc(write_config.dummy.into()));
+        reg.wtcr().modify(|w| w.set_dcyc(write_config.dummy.into()));
 
         // Enable memory mapped mode
         reg.cr().modify(|r| {
@@ -859,6 +858,7 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
         d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
         d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
+        dqs: impl Peripheral<P = impl DQSPin<T>> + 'd,
         config: Config,
     ) -> Self {
         Self::new_inner(
@@ -884,7 +884,7 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
                 nss,
                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
             ),
-            None,
+            new_pin!(dqs, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
             None,
             config,
             HspiWidth::OCTO,
@@ -1280,6 +1280,14 @@ pin_trait!(DQSPin, Instance);
 pin_trait!(NSSPin, Instance);
 dma_trait!(HspiDma, Instance);
 
+// pin_trait_impl!(embassy_stm32::hspi::DQSPin, HSPI1, PI2, 8u8);
+
+impl crate::hspi::DQSPin<crate::peripherals::HSPI1> for crate::peripherals::PI2 {
+    fn af_num(&self) -> u8 {
+        8u8
+    }
+}
+
 // // Hard-coded the octhspi index, for OCTOSPIM
 // #[cfg(octhspim_v1)]
 // impl SealedOcthspimInstance for peripherals::OCTOSPI1 {
@@ -1294,6 +1302,17 @@ dma_trait!(HspiDma, Instance);
 // }
 
 // #[cfg(octhspim_v1)]
+// foreach_peripheral!(
+//     (hspi, $inst:ident) => {
+//         impl SealedInstance for peripherals::$inst {
+//             const REGS: Regs = crate::pac::$inst;
+//         }
+
+//         impl Instance for peripherals::$inst {}
+//     };
+// );
+
+// #[cfg(not(octhspim_v1))]
 foreach_peripheral!(
     (hspi, $inst:ident) => {
         impl SealedInstance for peripherals::$inst {
@@ -1304,34 +1323,23 @@ foreach_peripheral!(
     };
 );
 
-// #[cfg(not(octhspim_v1))]
-// foreach_peripheral!(
-//     (octhspi, $inst:ident) => {
-//         impl SealedInstance for peripherals::$inst {
-//             const REGS: Regs = crate::pac::$inst;
-//         }
+impl<'d, T: Instance, M: PeriMode> SetConfig for Hspi<'d, T, M> {
+    type Config = Config;
+    type ConfigError = ();
+    fn set_config(&mut self, config: &Self::Config) -> Result<(), ()> {
+        self.set_config(config);
+        Ok(())
+    }
+}
 
-//         impl Instance for peripherals::$inst {}
-//     };
-// );
+impl<'d, T: Instance, M: PeriMode> GetConfig for Hspi<'d, T, M> {
+    type Config = Config;
+    fn get_config(&self) -> Self::Config {
+        self.get_config()
+    }
+}
 
-// impl<'d, T: Instance, M: PeriMode> SetConfig for Hspi<'d, T, M> {
-//     type Config = Config;
-//     type ConfigError = ();
-//     fn set_config(&mut self, config: &Self::Config) -> Result<(), ()> {
-//         self.set_config(config);
-//         Ok(())
-//     }
-// }
-
-// impl<'d, T: Instance, M: PeriMode> GetConfig for Hspi<'d, T, M> {
-//     type Config = Config;
-//     fn get_config(&self) -> Self::Config {
-//         self.get_config()
-//     }
-// }
-
-/// Word sizes usable for OSPI.
+/// Word sizes usable for HSPI.
 #[allow(private_bounds)]
 pub trait Word: word::Word {}
 

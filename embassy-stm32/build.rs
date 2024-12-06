@@ -1826,6 +1826,10 @@ macro_rules! {} {{
     )
     .unwrap();
 
+    // if name == "foreach_peripheral" {
+    //     writeln!(out, "pin_trait_impl!(crate::hspi::DQSPin, HSPI1, PI2, 8u8)").unwrap();
+    // }
+
     for row in data {
         writeln!(out, "        __{}_inner!(({}));", name, row.join(",")).unwrap();
     }
