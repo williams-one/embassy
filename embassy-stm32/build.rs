@@ -1095,9 +1095,8 @@ fn main() {
         (("hspi", "IO13"), quote!(crate::hspi::D13Pin)),
         (("hspi", "IO14"), quote!(crate::hspi::D14Pin)),
         (("hspi", "IO15"), quote!(crate::hspi::D15Pin)),
-        (("hspi", "DQS0"), quote!(crate::hspi::DQSPin)),
-        // capire cosa fare per DQS1
-        // (("hspi", "DQS1"), quote!(crate::hspi::DQSPin)),
+        (("hspi", "DQS0"), quote!(crate::hspi::DQS0Pin)),
+        (("hspi", "DQS1"), quote!(crate::hspi::DQS1Pin)),
         (("hspi", "NCS"), quote!(crate::hspi::NSSPin)),
         (("hspi", "CLK"), quote!(crate::hspi::SckPin)),
         (("hspi", "NCLK"), quote!(crate::hspi::NckPin)),
@@ -1827,10 +1826,6 @@ macro_rules! {} {{
         name, name
     )
     .unwrap();
-
-    // if name == "foreach_peripheral" {
-    //     writeln!(out, "pin_trait_impl!(crate::hspi::DQSPin, HSPI1, PI2, 8u8)").unwrap();
-    // }
 
     for row in data {
         writeln!(out, "        __{}_inner!(({}));", name, row.join(",")).unwrap();

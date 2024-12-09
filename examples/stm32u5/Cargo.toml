@@ -23,6 +23,7 @@ panic-probe = { version = "0.3", features = ["print-defmt"] }
 heapless = { version = "0.8", default-features = false }
 embedded-graphics = { version = "0.8.1" }
 tinybmp = { version = "0.6.0" }
+static_cell = { version = "2.1.0" }
 
 micromath = "2.0.0"
 

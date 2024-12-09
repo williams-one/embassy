@@ -178,7 +178,8 @@ pub struct Hspi<'d, T: Instance, M: PeriMode> {
     d14: Option<PeripheralRef<'d, AnyPin>>,
     d15: Option<PeripheralRef<'d, AnyPin>>,
     nss: Option<PeripheralRef<'d, AnyPin>>,
-    dqs: Option<PeripheralRef<'d, AnyPin>>,
+    dqs0: Option<PeripheralRef<'d, AnyPin>>,
+    dqs1: Option<PeripheralRef<'d, AnyPin>>,
     dma: Option<ChannelAndRequest<'d>>,
     _phantom: PhantomData<M>,
     config: Config,
@@ -196,15 +197,8 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         // Use configure command to set read config
         self.configure_command(&read_config, None)?;
 
-        let reg = T::REGS;
-        while reg.sr().read().busy() {}
-
-        reg.ccr().modify(|r| {
-            r.set_dqse(true);
-        });
-
         // Set writing configurations, there are separate registers for write configurations in memory mapped mode
-        reg.wccr().modify(|w| {
+        T::REGS.wccr().modify(|w| {
             w.set_imode(write_config.iwidth.into());
             w.set_idtr(write_config.idtr);
             w.set_isize(write_config.isize.into());
@@ -220,10 +214,10 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
             w.set_dqse(true);
         });
 
-        reg.wtcr().modify(|w| w.set_dcyc(write_config.dummy.into()));
+        T::REGS.wtcr().modify(|w| w.set_dcyc(write_config.dummy.into()));
 
         // Enable memory mapped mode
-        reg.cr().modify(|r| {
+        T::REGS.cr().modify(|r| {
             r.set_fmode(FunctionalMode::MemoryMapped.into());
             r.set_tcen(false);
         });
@@ -234,7 +228,7 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
     //     pub fn disable_memory_mapped_mode(&mut self) {
     //         let reg = T::REGS;
 
-    //         reg.cr().modify(|r| {
+    //         T::REGS.cr().modify(|r| {
     //             r.set_fmode(crate::hspi::vals::FunctionalMode::INDIRECTWRITE);
     //             r.set_abort(true);
     //             r.set_dmaen(false);
@@ -242,10 +236,10 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
     //         });
 
     //         // Clear transfer complete flag
-    //         reg.fcr().write(|w| w.set_ctcf(true));
+    //         T::REGS.fcr().write(|w| w.set_ctcf(true));
 
     //         // Re-enable hspi
-    //         reg.cr().modify(|r| {
+    //         T::REGS.cr().modify(|r| {
     //             r.set_en(true);
     //         });
     //     }
@@ -270,7 +264,8 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         d15: Option<PeripheralRef<'d, AnyPin>>,
         sck: Option<PeripheralRef<'d, AnyPin>>,
         nss: Option<PeripheralRef<'d, AnyPin>>,
-        dqs: Option<PeripheralRef<'d, AnyPin>>,
+        dqs0: Option<PeripheralRef<'d, AnyPin>>,
+        dqs1: Option<PeripheralRef<'d, AnyPin>>,
         dma: Option<ChannelAndRequest<'d>>,
         config: Config,
         width: HspiWidth,
@@ -444,7 +439,8 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
             d14,
             d15,
             nss,
-            dqs,
+            dqs0,
+            dqs1,
             dma,
             _phantom: PhantomData,
             config,
@@ -462,6 +458,8 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         {
             return Err(HspiError::InvalidCommand);
         }
+
+        while T::REGS.sr().read().busy() {}
 
         T::REGS.cr().modify(|w| {
             w.set_fmode(0.into());
@@ -505,9 +503,11 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
             w.set_dmode(command.dwidth.into());
             w.set_ddtr(command.ddtr);
+
+            w.set_dqse(command.ddtr);
         });
 
-        // Set informationrequired to initiate transaction
+        // Set information required to initiate transaction
         if let Some(instruction) = command.instruction {
             if let Some(address) = command.address {
                 T::REGS.ir().write(|v| {
@@ -858,7 +858,7 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
         d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
         d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-        dqs: impl Peripheral<P = impl DQSPin<T>> + 'd,
+        dqs0: impl Peripheral<P = impl DQS0Pin<T>> + 'd,
         config: Config,
     ) -> Self {
         Self::new_inner(
@@ -884,7 +884,8 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
                 nss,
                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
             ),
-            new_pin!(dqs, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(dqs0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            None,
             None,
             config,
             HspiWidth::OCTO,
@@ -1276,17 +1277,10 @@ pin_trait!(D12Pin, Instance);
 pin_trait!(D13Pin, Instance);
 pin_trait!(D14Pin, Instance);
 pin_trait!(D15Pin, Instance);
-pin_trait!(DQSPin, Instance);
+pin_trait!(DQS0Pin, Instance);
+pin_trait!(DQS1Pin, Instance);
 pin_trait!(NSSPin, Instance);
 dma_trait!(HspiDma, Instance);
-
-// pin_trait_impl!(embassy_stm32::hspi::DQSPin, HSPI1, PI2, 8u8);
-
-// impl crate::hspi::DQSPin<crate::peripherals::HSPI1> for crate::peripherals::PI2 {
-//     fn af_num(&self) -> u8 {
-//         8u8
-//     }
-// }
 
 // // Hard-coded the octhspi index, for OCTOSPIM
 // #[cfg(octhspim_v1)]
