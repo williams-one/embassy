@@ -9,13 +9,11 @@ use core::marker::PhantomData;
 
 use embassy_embedded_hal::{GetConfig, SetConfig};
 use embassy_hal_internal::{into_ref, PeripheralRef};
-pub use enums::*; // TODO include anche vals
-                  // use stm32_metapac::octhspi::vals::{PhaseMode, SizeInBits};
+pub use enums::*;
 
 use crate::dma::{word, ChannelAndRequest};
 use crate::gpio::{AfType, AnyPin, OutputType, Pull, SealedPin as _, Speed};
 use crate::mode::{Async, Blocking, Mode as PeriMode};
-// TODO aggiungere vals
 use crate::pac::hspi::Hspi as Regs;
 use crate::rcc::{self, RccPeripheral};
 use crate::{peripherals, Peripheral};
@@ -60,26 +58,26 @@ pub struct Config {
     pub refresh: u32,
 }
 
-// impl Default for Config {
-//     fn default() -> Self {
-//         Self {
-//             fifo_threshold: FIFOThresholdLevel::_16Bytes, // 32 bytes FIFO, half capacity
-//             memory_type: MemoryType::Micron,
-//             device_size: MemorySize::Other(0),
-//             chip_select_high_time: ChipSelectHighTime::_5Cycle,
-//             free_running_clock: false,
-//             clock_mode: false,
-//             wrap_size: WrapSize::None,
-//             clock_prescaler: 0,
-//             sample_shifting: false,
-//             delay_hold_quarter_cycle: false,
-//             chip_select_boundary: 0, // Acceptable range 0 to 31
-//             delay_block_bypass: true,
-//             max_transfer: 0,
-//             refresh: 0,
-//         }
-//     }
-// }
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            fifo_threshold: FIFOThresholdLevel::_16Bytes,
+            memory_type: MemoryType::Micron,
+            device_size: MemorySize::Other(0),
+            chip_select_high_time: ChipSelectHighTime::_5Cycle,
+            free_running_clock: false,
+            clock_mode: false,
+            wrap_size: WrapSize::None,
+            clock_prescaler: 0,
+            sample_shifting: false,
+            delay_hold_quarter_cycle: false,
+            chip_select_boundary: 0, // Acceptable range 0 to 31
+            delay_block_bypass: true,
+            max_transfer: 0,
+            refresh: 0,
+        }
+    }
+}
 
 /// HSPI transfer configuration.
 pub struct TransferConfig {
@@ -273,85 +271,6 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
     ) -> Self {
         into_ref!(peri);
 
-        // let kernel_clock = T::frequency();
-
-        //         #[cfg(octhspim_v1)]
-        //         {
-        //             // RCC for octhspim should be enabled before writing register
-        //             #[cfg(stm32l4)]
-        //             crate::pac::RCC.ahb2smenr().modify(|w| w.set_octhspimsmen(true));
-        //             #[cfg(stm32u5)]
-        //             crate::pac::RCC.ahb2enr1().modify(|w| w.set_octhspimen(true));
-        //             #[cfg(not(any(stm32l4, stm32u5)))]
-        //             crate::pac::RCC.ahb3enr().modify(|w| w.set_iomngren(true));
-
-        //             // Disable HSPI peripheral first
-        //             T::REGS.cr().modify(|w| {
-        //                 w.set_en(false);
-        //             });
-
-        //             // HSPI IO Manager has been enabled before
-        //             T::OCTOSPIM_REGS.cr().modify(|w| {
-        //                 w.set_muxen(false);
-        //                 w.set_req2ack_time(0xff);
-        //             });
-
-        //             // Clear config
-        //             T::OCTOSPIM_REGS.p1cr().modify(|w| {
-        //                 w.set_clksrc(false);
-        //                 w.set_dqssrc(false);
-        //                 w.set_ncssrc(false);
-        //                 w.set_clken(false);
-        //                 w.set_dqsen(false);
-        //                 w.set_ncsen(false);
-        //                 w.set_iolsrc(0);
-        //                 w.set_iohsrc(0);
-        //             });
-
-        //             T::OCTOSPIM_REGS.p1cr().modify(|w| {
-        //                 let octhspi_src = if T::OCTOSPI_IDX == 1 { false } else { true };
-        //                 w.set_ncsen(true);
-        //                 w.set_ncssrc(octhspi_src);
-        //                 w.set_clken(true);
-        //                 w.set_clksrc(octhspi_src);
-        //                 if dqs.is_some() {
-        //                     w.set_dqsen(true);
-        //                     w.set_dqssrc(octhspi_src);
-        //                 }
-
-        //                 // Set OCTOSPIM IOL and IOH according to the index of HSPI instance
-        //                 if T::OCTOSPI_IDX == 1 {
-        //                     w.set_iolen(true);
-        //                     w.set_iolsrc(0);
-        //                     // Enable IOH in octo and dual quad mode
-        //                     if let HspiWidth::OCTO = width {
-        //                         w.set_iohen(true);
-        //                         w.set_iohsrc(0b01);
-        //                     } else if dual_quad {
-        //                         w.set_iohen(true);
-        //                         w.set_iohsrc(0b00);
-        //                     } else {
-        //                         w.set_iohen(false);
-        //                         w.set_iohsrc(0b00);
-        //                     }
-        //                 } else {
-        //                     w.set_iolen(true);
-        //                     w.set_iolsrc(0b10);
-        //                     // Enable IOH in octo and dual quad mode
-        //                     if let HspiWidth::OCTO = width {
-        //                         w.set_iohen(true);
-        //                         w.set_iohsrc(0b11);
-        //                     } else if dual_quad {
-        //                         w.set_iohen(true);
-        //                         w.set_iohsrc(0b10);
-        //                     } else {
-        //                         w.set_iohen(false);
-        //                         w.set_iohsrc(0b00);
-        //                     }
-        //                 }
-        //             });
-        //         }
-
         // System configuration
         rcc::enable_and_reset::<T>();
 
@@ -521,15 +440,6 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
                     v.set_address(address);
                 });
             } else {
-                // Double check requirements for delay hold and sample shifting
-                // if let None = command.data_len {
-                //     if self.config.delay_hold_quarter_cycle && command.idtr {
-                //         T::REGS.ccr().modify(|w| {
-                //             w.set_ddtr(true);
-                //         });
-                //     }
-                // }
-
                 T::REGS.ir().write(|v| {
                     v.set_instruction(instruction);
                 });
@@ -705,14 +615,14 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
     //         self.config = *config;
     //     }
 
-    //     /// Get current configuration
-    //     pub fn get_config(&self) -> Config {
-    //         self.config
-    //     }
+    /// Get current configuration
+    pub fn get_config(&self) -> Config {
+        self.config
+    }
 }
 
 impl<'d, T: Instance> Hspi<'d, T, Blocking> {
-    /// Create new blocking OSPI driver for a single spi external chip
+    /// Create new blocking OSPI driver for single spi external chip
     pub fn new_blocking_singlespi(
         peri: impl Peripheral<P = T> + 'd,
         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
@@ -753,7 +663,7 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
         )
     }
 
-    /// Create new blocking HSPI driver for octospi external chips
+    /// Create new blocking HSPI driver for octospi external chip
     pub fn new_blocking_octospi(
         peri: impl Peripheral<P = T> + 'd,
         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
@@ -802,322 +712,238 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
     }
 }
 
-// impl<'d, T: Instance> Hspi<'d, T, Async> {
-//     /// Create new blocking OSPI driver for a single spi external chip
-//     pub fn new_singlespi(
-//         peri: impl Peripheral<P = T> + 'd,
-//         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-//         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-//         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-//         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-//         dma: impl Peripheral<P = impl OctoDma<T>> + 'd,
-//         config: Config,
-//     ) -> Self {
-//         Self::new_inner(
-//             peri,
-//             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d1, AfType::input(Pull::None)),
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(
-//                 nss,
-//                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-//             ),
-//             None,
-//             new_dma!(dma),
-//             config,
-//             HspiWidth::SING,
-//             false,
-//         )
-//     }
+impl<'d, T: Instance> Hspi<'d, T, Async> {
+    /// Create new HSPI driver for a single spi external chip
+    pub fn new_singlespi(
+        peri: impl Peripheral<P = T> + 'd,
+        sck: impl Peripheral<P = impl SckPin<T>> + 'd,
+        d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
+        d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
+        nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
+        dma: impl Peripheral<P = impl HspiDma<T>> + 'd,
+        config: Config,
+    ) -> Self {
+        Self::new_inner(
+            peri,
+            new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d1, AfType::input(Pull::None)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(
+                nss,
+                AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
+            ),
+            None,
+            None,
+            new_dma!(dma),
+            config,
+            HspiWidth::SING,
+            false,
+        )
+    }
 
-//     /// Create new blocking OSPI driver for a dualspi external chip
-//     pub fn new_dualspi(
-//         peri: impl Peripheral<P = T> + 'd,
-//         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-//         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-//         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-//         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-//         dma: impl Peripheral<P = impl OctoDma<T>> + 'd,
-//         config: Config,
-//     ) -> Self {
-//         Self::new_inner(
-//             peri,
-//             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(
-//                 nss,
-//                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-//             ),
-//             None,
-//             new_dma!(dma),
-//             config,
-//             HspiWidth::DUAL,
-//             false,
-//         )
-//     }
+    /// Create new HSPI driver for octospi external chip
+    pub fn new_octospi(
+        peri: impl Peripheral<P = T> + 'd,
+        sck: impl Peripheral<P = impl SckPin<T>> + 'd,
+        d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
+        d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
+        d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
+        d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
+        d4: impl Peripheral<P = impl D4Pin<T>> + 'd,
+        d5: impl Peripheral<P = impl D5Pin<T>> + 'd,
+        d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
+        d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
+        nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
+        dqs0: impl Peripheral<P = impl DQS0Pin<T>> + 'd,
+        dma: impl Peripheral<P = impl HspiDma<T>> + 'd,
+        config: Config,
+    ) -> Self {
+        Self::new_inner(
+            peri,
+            new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d4, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d5, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d6, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d7, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            new_pin!(
+                nss,
+                AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
+            ),
+            new_pin!(dqs0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            None,
+            new_dma!(dma),
+            config,
+            HspiWidth::OCTO,
+            false,
+        )
+    }
 
-//     /// Create new blocking OSPI driver for a quadspi external chip
-//     pub fn new_quadspi(
-//         peri: impl Peripheral<P = T> + 'd,
-//         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-//         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-//         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-//         d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
-//         d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
-//         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-//         dma: impl Peripheral<P = impl OctoDma<T>> + 'd,
-//         config: Config,
-//     ) -> Self {
-//         Self::new_inner(
-//             peri,
-//             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             None,
-//             None,
-//             None,
-//             None,
-//             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(
-//                 nss,
-//                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-//             ),
-//             None,
-//             new_dma!(dma),
-//             config,
-//             HspiWidth::QUAD,
-//             false,
-//         )
-//     }
+    /// Blocking read with DMA transfer
+    pub fn blocking_read_dma<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-//     /// Create new blocking OSPI driver for two quadspi external chips
-//     pub fn new_dualquadspi(
-//         peri: impl Peripheral<P = T> + 'd,
-//         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-//         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-//         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-//         d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
-//         d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
-//         d4: impl Peripheral<P = impl D4Pin<T>> + 'd,
-//         d5: impl Peripheral<P = impl D5Pin<T>> + 'd,
-//         d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
-//         d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
-//         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-//         dma: impl Peripheral<P = impl OctoDma<T>> + 'd,
-//         config: Config,
-//     ) -> Self {
-//         Self::new_inner(
-//             peri,
-//             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d4, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d5, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d6, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d7, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(
-//                 nss,
-//                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-//             ),
-//             None,
-//             new_dma!(dma),
-//             config,
-//             HspiWidth::QUAD,
-//             true,
-//         )
-//     }
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-//     /// Create new blocking OSPI driver for octhspi external chips
-//     pub fn new_octhspi(
-//         peri: impl Peripheral<P = T> + 'd,
-//         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-//         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-//         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-//         d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
-//         d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
-//         d4: impl Peripheral<P = impl D4Pin<T>> + 'd,
-//         d5: impl Peripheral<P = impl D5Pin<T>> + 'd,
-//         d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
-//         d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
-//         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-//         dma: impl Peripheral<P = impl OctoDma<T>> + 'd,
-//         config: Config,
-//     ) -> Self {
-//         Self::new_inner(
-//             peri,
-//             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d4, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d5, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d6, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(d7, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-//             new_pin!(
-//                 nss,
-//                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-//             ),
-//             None,
-//             new_dma!(dma),
-//             config,
-//             HspiWidth::OCTO,
-//             false,
-//         )
-//     }
+        self.configure_command(&transaction, Some(buf.len()))?;
 
-//     /// Blocking read with DMA transfer
-//     pub fn blocking_read_dma<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
-//         if buf.is_empty() {
-//             return Err(HspiError::EmptyBuffer);
-//         }
+        let current_address = T::REGS.ar().read().address();
+        let current_instruction = T::REGS.ir().read().instruction();
 
-//         // Wait for peripheral to be free
-//         while T::REGS.sr().read().busy() {}
+        // For a indirect read transaction, the transaction begins when the instruction/address is set
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectRead.into()));
+        if T::REGS.ccr().read().admode() == HspiWidth::NONE.into() {
+            T::REGS.ir().write(|v| v.set_instruction(current_instruction));
+        } else {
+            T::REGS.ar().write(|v| v.set_address(current_address));
+        }
 
-//         self.configure_command(&transaction, Some(buf.len()))?;
+        let transfer = unsafe {
+            self.dma
+                .as_mut()
+                .unwrap()
+                .read(T::REGS.dr().as_ptr() as *mut W, buf, Default::default())
+        };
 
-//         let current_address = T::REGS.ar().read().address();
-//         let current_instruction = T::REGS.ir().read().instruction();
+        T::REGS.cr().modify(|w| w.set_dmaen(true));
 
-//         // For a indirect read transaction, the transaction begins when the instruction/address is set
-//         T::REGS.cr().modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTREAD));
-//         if T::REGS.ccr().read().admode() == vals::PhaseMode::NONE {
-//             T::REGS.ir().write(|v| v.set_instruction(current_instruction));
-//         } else {
-//             T::REGS.ar().write(|v| v.set_address(current_address));
-//         }
+        transfer.blocking_wait();
 
-//         let transfer = unsafe {
-//             self.dma
-//                 .as_mut()
-//                 .unwrap()
-//                 .read(T::REGS.dr().as_ptr() as *mut W, buf, Default::default())
-//         };
+        finish_dma(T::REGS);
 
-//         T::REGS.cr().modify(|w| w.set_dmaen(true));
+        Ok(())
+    }
 
-//         transfer.blocking_wait();
+    /// Blocking write with DMA transfer
+    pub fn blocking_write_dma<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-//         finish_dma(T::REGS);
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-//         Ok(())
-//     }
+        self.configure_command(&transaction, Some(buf.len()))?;
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectWrite.into()));
 
-//     /// Blocking write with DMA transfer
-//     pub fn blocking_write_dma<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
-//         if buf.is_empty() {
-//             return Err(HspiError::EmptyBuffer);
-//         }
+        let transfer = unsafe {
+            self.dma
+                .as_mut()
+                .unwrap()
+                .write(buf, T::REGS.dr().as_ptr() as *mut W, Default::default())
+        };
 
-//         // Wait for peripheral to be free
-//         while T::REGS.sr().read().busy() {}
+        T::REGS.cr().modify(|w| w.set_dmaen(true));
 
-//         self.configure_command(&transaction, Some(buf.len()))?;
-//         T::REGS
-//             .cr()
-//             .modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTWRITE));
+        transfer.blocking_wait();
 
-//         let transfer = unsafe {
-//             self.dma
-//                 .as_mut()
-//                 .unwrap()
-//                 .write(buf, T::REGS.dr().as_ptr() as *mut W, Default::default())
-//         };
+        finish_dma(T::REGS);
 
-//         T::REGS.cr().modify(|w| w.set_dmaen(true));
+        Ok(())
+    }
 
-//         transfer.blocking_wait();
+    /// Asynchronous read from external device
+    pub async fn read<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-//         finish_dma(T::REGS);
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-//         Ok(())
-//     }
+        self.configure_command(&transaction, Some(buf.len()))?;
 
-//     /// Asynchronous read from external device
-//     pub async fn read<W: Word>(&mut self, buf: &mut [W], transaction: TransferConfig) -> Result<(), HspiError> {
-//         if buf.is_empty() {
-//             return Err(HspiError::EmptyBuffer);
-//         }
+        let current_address = T::REGS.ar().read().address();
+        let current_instruction = T::REGS.ir().read().instruction();
 
-//         // Wait for peripheral to be free
-//         while T::REGS.sr().read().busy() {}
+        // For a indirect read transaction, the transaction begins when the instruction/address is set
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectWrite.into()));
+        if T::REGS.ccr().read().admode() == HspiWidth::NONE.into() {
+            T::REGS.ir().write(|v| v.set_instruction(current_instruction));
+        } else {
+            T::REGS.ar().write(|v| v.set_address(current_address));
+        }
 
-//         self.configure_command(&transaction, Some(buf.len()))?;
+        let transfer = unsafe {
+            self.dma
+                .as_mut()
+                .unwrap()
+                .read(T::REGS.dr().as_ptr() as *mut W, buf, Default::default())
+        };
 
-//         let current_address = T::REGS.ar().read().address();
-//         let current_instruction = T::REGS.ir().read().instruction();
+        T::REGS.cr().modify(|w| w.set_dmaen(true));
 
-//         // For a indirect read transaction, the transaction begins when the instruction/address is set
-//         T::REGS.cr().modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTREAD));
-//         if T::REGS.ccr().read().admode() == vals::PhaseMode::NONE {
-//             T::REGS.ir().write(|v| v.set_instruction(current_instruction));
-//         } else {
-//             T::REGS.ar().write(|v| v.set_address(current_address));
-//         }
+        transfer.await;
 
-//         let transfer = unsafe {
-//             self.dma
-//                 .as_mut()
-//                 .unwrap()
-//                 .read(T::REGS.dr().as_ptr() as *mut W, buf, Default::default())
-//         };
+        finish_dma(T::REGS);
 
-//         T::REGS.cr().modify(|w| w.set_dmaen(true));
+        Ok(())
+    }
 
-//         transfer.await;
+    /// Asynchronous write to external device
+    pub async fn write<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
+        if buf.is_empty() {
+            return Err(HspiError::EmptyBuffer);
+        }
 
-//         finish_dma(T::REGS);
+        // Wait for peripheral to be free
+        while T::REGS.sr().read().busy() {}
 
-//         Ok(())
-//     }
+        self.configure_command(&transaction, Some(buf.len()))?;
+        T::REGS
+            .cr()
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectWrite.into()));
 
-//     /// Asynchronous write to external device
-//     pub async fn write<W: Word>(&mut self, buf: &[W], transaction: TransferConfig) -> Result<(), HspiError> {
-//         if buf.is_empty() {
-//             return Err(HspiError::EmptyBuffer);
-//         }
+        let transfer = unsafe {
+            self.dma
+                .as_mut()
+                .unwrap()
+                .write(buf, T::REGS.dr().as_ptr() as *mut W, Default::default())
+        };
 
-//         // Wait for peripheral to be free
-//         while T::REGS.sr().read().busy() {}
+        T::REGS.cr().modify(|w| w.set_dmaen(true));
 
-//         self.configure_command(&transaction, Some(buf.len()))?;
-//         T::REGS
-//             .cr()
-//             .modify(|v| v.set_fmode(vals::FunctionalMode::INDIRECTWRITE));
+        transfer.await;
 
-//         let transfer = unsafe {
-//             self.dma
-//                 .as_mut()
-//                 .unwrap()
-//                 .write(buf, T::REGS.dr().as_ptr() as *mut W, Default::default())
-//         };
+        finish_dma(T::REGS);
 
-//         T::REGS.cr().modify(|w| w.set_dmaen(true));
-
-//         transfer.await;
-
-//         finish_dma(T::REGS);
-
-//         Ok(())
-//     }
-// }
+        Ok(())
+    }
+}
 
 impl<'d, T: Instance, M: PeriMode> Drop for Hspi<'d, T, M> {
     fn drop(&mut self) {
@@ -1146,31 +972,19 @@ impl<'d, T: Instance, M: PeriMode> Drop for Hspi<'d, T, M> {
     }
 }
 
-// fn finish_dma(regs: Regs) {
-//     while !regs.sr().read().tcf() {}
-//     regs.fcr().write(|v| v.set_ctcf(true));
+fn finish_dma(regs: Regs) {
+    while !regs.sr().read().tcf() {}
+    regs.fcr().write(|v| v.set_ctcf(true));
 
-//     regs.cr().modify(|w| {
-//         w.set_dmaen(false);
-//     });
-// }
-
-// #[cfg(octhspim_v1)]
-// /// HSPI I/O manager instance trait.
-// pub(crate) trait SealedOcthspimInstance {
-//     const OCTOSPIM_REGS: Octhspim;
-//     const OCTOSPI_IDX: u8;
-// }
+    regs.cr().modify(|w| {
+        w.set_dmaen(false);
+    });
+}
 
 /// HSPI instance trait.
 pub(crate) trait SealedInstance {
     const REGS: Regs;
 }
-
-// /// OSPI instance trait.
-// #[cfg(octhspim_v1)]
-// #[allow(private_bounds)]
-// pub trait Instance: Peripheral<P = Self> + SealedInstance + RccPeripheral + SealedOcthspimInstance {}
 
 /// HSPI instance trait.
 #[allow(private_bounds)]
@@ -1199,31 +1013,6 @@ pin_trait!(DQS1Pin, Instance);
 pin_trait!(NSSPin, Instance);
 dma_trait!(HspiDma, Instance);
 
-// // Hard-coded the octhspi index, for OCTOSPIM
-// #[cfg(octhspim_v1)]
-// impl SealedOcthspimInstance for peripherals::OCTOSPI1 {
-//     const OCTOSPIM_REGS: Octhspim = crate::pac::OCTOSPIM;
-//     const OCTOSPI_IDX: u8 = 1;
-// }
-
-// #[cfg(all(octhspim_v1, peri_octhspi2))]
-// impl SealedOcthspimInstance for peripherals::OCTOSPI2 {
-//     const OCTOSPIM_REGS: Octhspim = crate::pac::OCTOSPIM;
-//     const OCTOSPI_IDX: u8 = 2;
-// }
-
-// #[cfg(octhspim_v1)]
-// foreach_peripheral!(
-//     (hspi, $inst:ident) => {
-//         impl SealedInstance for peripherals::$inst {
-//             const REGS: Regs = crate::pac::$inst;
-//         }
-
-//         impl Instance for peripherals::$inst {}
-//     };
-// );
-
-// #[cfg(not(octhspim_v1))]
 foreach_peripheral!(
     (hspi, $inst:ident) => {
         impl SealedInstance for peripherals::$inst {

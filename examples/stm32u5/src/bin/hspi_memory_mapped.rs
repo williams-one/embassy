@@ -17,6 +17,16 @@ use embassy_stm32::rcc;
 use embassy_stm32::time::Hertz;
 use {defmt_rtt as _, panic_probe as _};
 
+#[allow(dead_code)]
+enum TestCase {
+    Spi,
+    SpiDma,
+    OctaDtr,
+    OctaDtrDma,
+}
+
+const TEST_CASE: TestCase = TestCase::OctaDtr;
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     info!("Start hspi_memory_mapped");
@@ -66,84 +76,104 @@ async fn main(_spawner: Spawner) {
         refresh: 0,
     };
 
-    // {
-    //     info!("Testing flash in SPI mode");
+    match TEST_CASE {
+        TestCase::Spi | TestCase::SpiDma => {
+            let use_dma = match TEST_CASE {
+                TestCase::SpiDma => true,
+                _ => false,
+            };
 
-    //     let hspi = Hspi::new_blocking_singlespi(p.HSPI1, p.PI3, p.PH10, p.PH11, p.PH9, flash_config);
-    //     let mut flash = FlashMemory::new(hspi).await;
+            info!("Testing flash in SPI mode");
 
-    //     let flash_id = flash.read_id();
-    //     info!("FLASH ID: {=[u8]:x}", flash_id);
+            let hspi = Hspi::new_singlespi(p.HSPI1, p.PI3, p.PH10, p.PH11, p.PH9, p.GPDMA1_CH7, flash_config);
+            let mut flash = FlashMemory::new(hspi).await;
 
-    //     let mut rd_buf = [0u8; 16];
-    //     flash.read_memory(0, &mut rd_buf, false);
-    //     info!("READ BUF: {=[u8]:#X}", rd_buf);
+            let flash_id = flash.read_id();
+            info!("FLASH ID: {=[u8]:x}", flash_id);
 
-    //     flash.erase_sector(0).await;
-    //     flash.read_memory(0, &mut rd_buf, false);
-    //     info!("READ BUF: {=[u8]:#X}", rd_buf);
+            let mut rd_buf = [0u8; 16];
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
 
-    //     let mut wr_buf = [0u8; 16];
-    //     for i in 0..wr_buf.len() {
-    //         wr_buf[i] = i as u8;
-    //     }
-    //     info!("WRITE BUF: {=[u8]:#X}", wr_buf);
-    //     flash.write_memory(0, &wr_buf, false).await;
-    //     flash.read_memory(0, &mut rd_buf, false);
-    //     info!("READ BUF: {=[u8]:#X}", rd_buf);
-    // }
+            flash.erase_sector(0).await;
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
+            assert_eq!(rd_buf[0], 0xFF);
+            assert_eq!(rd_buf[15], 0xFF);
 
-    {
-        info!("Testing flash in OCTA DTR mode and memory mapped mode");
-
-        let hspi = Hspi::new_blocking_octospi(
-            p.HSPI1,
-            p.PI3,
-            p.PH10,
-            p.PH11,
-            p.PH12,
-            p.PH13,
-            p.PH14,
-            p.PH15,
-            p.PI0,
-            p.PI1,
-            p.PH9,
-            p.PI2,
-            flash_config,
-        );
-
-        let mut flash = OctaDtrFlashMemory::new(hspi).await;
-
-        // let flash_id = flash.read_id();
-        // info!("FLASH ID: {=[u8]:x}", flash_id);
-
-        let mut rd_buf = [0u8; 16];
-        flash.read_memory(0, &mut rd_buf, false);
-        info!("READ BUF: {=[u8]:#X}", rd_buf);
-
-        flash.erase_sector(0).await;
-        flash.read_memory(0, &mut rd_buf, false);
-        info!("READ BUF: {=[u8]:#X}", rd_buf);
-
-        let mut wr_buf = [0u8; 16];
-        for i in 0..wr_buf.len() {
-            wr_buf[i] = i as u8;
+            let mut wr_buf = [0u8; 16];
+            for i in 0..wr_buf.len() {
+                wr_buf[i] = i as u8;
+            }
+            info!("WRITE BUF: {=[u8]:#X}", wr_buf);
+            flash.write_memory(0, &wr_buf, use_dma).await;
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
+            assert_eq!(rd_buf[0], 0x00);
+            assert_eq!(rd_buf[15], 0x0F);
         }
-        info!("WRITE BUF: {=[u8]:#X}", wr_buf);
-        flash.write_memory(0, &wr_buf, false).await;
-        flash.read_memory(0, &mut rd_buf, false);
-        info!("READ BUF: {=[u8]:#X}", rd_buf);
 
-        flash.enable_mm().await;
-        info!("Enabled memory mapped mode");
+        TestCase::OctaDtr | TestCase::OctaDtrDma => {
+            let use_dma = match TEST_CASE {
+                TestCase::SpiDma => true,
+                _ => false,
+            };
 
-        let first_u32 = unsafe { *(0xA0000000 as *const u32) };
-        info!("first_u32: 0x{=u32:X}", first_u32);
-        assert_eq!(first_u32, 0x03020100);
+            info!("Testing flash in OCTA DTR mode and memory mapped mode");
 
-        let second_u32 = unsafe { *(0xA0000004 as *const u32) };
-        assert_eq!(second_u32, 0x07060504);
-        info!("second_u32: 0x{=u32:X}", second_u32);
+            let hspi = Hspi::new_blocking_octospi(
+                p.HSPI1,
+                p.PI3,
+                p.PH10,
+                p.PH11,
+                p.PH12,
+                p.PH13,
+                p.PH14,
+                p.PH15,
+                p.PI0,
+                p.PI1,
+                p.PH9,
+                p.PI2,
+                flash_config,
+            );
+
+            let mut flash = OctaDtrFlashMemory::new(hspi).await;
+
+            // let flash_id = flash.read_id();
+            // info!("FLASH ID: {=[u8]:x}", flash_id);
+
+            let mut rd_buf = [0u8; 16];
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
+
+            flash.erase_sector(0).await;
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
+            assert_eq!(rd_buf[0], 0xFF);
+            assert_eq!(rd_buf[15], 0xFF);
+
+            let mut wr_buf = [0u8; 16];
+            for i in 0..wr_buf.len() {
+                wr_buf[i] = i as u8;
+            }
+            info!("WRITE BUF: {=[u8]:#X}", wr_buf);
+            flash.write_memory(0, &wr_buf, use_dma).await;
+            flash.read_memory(0, &mut rd_buf, use_dma);
+            info!("READ BUF: {=[u8]:#X}", rd_buf);
+            assert_eq!(rd_buf[0], 0x00);
+            assert_eq!(rd_buf[15], 0x0F);
+
+            flash.enable_mm().await;
+            info!("Enabled memory mapped mode");
+
+            let first_u32 = unsafe { *(0xA0000000 as *const u32) };
+            info!("first_u32: 0x{=u32:X}", first_u32);
+            assert_eq!(first_u32, 0x03020100);
+
+            let second_u32 = unsafe { *(0xA0000004 as *const u32) };
+            assert_eq!(second_u32, 0x07060504);
+            info!("second_u32: 0x{=u32:X}", second_u32);
+        }
     }
 
     info!("DONE");
@@ -232,7 +262,7 @@ impl<I: Instance> FlashMemory<I> {
             ..Default::default()
         };
         if use_dma {
-            // self.hspi.blocking_read_dma(buffer, transaction).unwrap();
+            self.hspi.blocking_read_dma(buffer, transaction).unwrap();
         } else {
             self.hspi.blocking_read(buffer, transaction).unwrap();
         }
@@ -282,7 +312,7 @@ impl<I: Instance> FlashMemory<I> {
         };
         self.write_enable().await;
         if use_dma {
-            // self.hspi.blocking_write_dma(buffer, transaction).unwrap();
+            self.hspi.blocking_write_dma(buffer, transaction).unwrap();
         } else {
             self.hspi.blocking_write(buffer, transaction).unwrap();
         }
@@ -509,7 +539,7 @@ impl<I: Instance> OctaDtrFlashMemory<I> {
             ..Default::default()
         };
         if use_dma {
-            // self.hspi.blocking_read_dma(buffer, transaction).unwrap();
+            self.hspi.blocking_read_dma(buffer, transaction).unwrap();
         } else {
             self.hspi.blocking_read(buffer, transaction).unwrap();
         }
@@ -565,7 +595,7 @@ impl<I: Instance> OctaDtrFlashMemory<I> {
         };
         self.write_enable_octa_dtr().await;
         if use_dma {
-            // self.hspi.blocking_write_dma(buffer, transaction).unwrap();
+            self.hspi.blocking_write_dma(buffer, transaction).unwrap();
         } else {
             self.hspi.blocking_write(buffer, transaction).unwrap();
         }
