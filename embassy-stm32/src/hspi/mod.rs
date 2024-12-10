@@ -840,7 +840,7 @@ impl<'d, T: Instance> Hspi<'d, T, Async> {
         // For a indirect read transaction, the transaction begins when the instruction/address is set
         T::REGS
             .cr()
-            .modify(|v| v.set_fmode(FunctionalMode::IndirectWrite.into()));
+            .modify(|v| v.set_fmode(FunctionalMode::IndirectRead.into()));
         if T::REGS.ccr().read().admode() == HspiWidth::NONE.into() {
             T::REGS.ir().write(|v| v.set_instruction(current_instruction));
         } else {

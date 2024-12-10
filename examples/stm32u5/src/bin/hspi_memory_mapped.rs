@@ -25,7 +25,7 @@ enum TestCase {
     OctaDtrDma,
 }
 
-const TEST_CASE: TestCase = TestCase::OctaDtrDma;
+const TEST_CASE: TestCase = TestCase::OctaDtr;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -92,11 +92,11 @@ async fn main(_spawner: Spawner) {
             info!("FLASH ID: {=[u8]:x}", flash_id);
 
             let mut rd_buf = [0u8; 16];
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
 
             flash.erase_sector(0).await;
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
             assert_eq!(rd_buf[0], 0xFF);
             assert_eq!(rd_buf[15], 0xFF);
@@ -107,7 +107,7 @@ async fn main(_spawner: Spawner) {
             }
             info!("WRITE BUF: {=[u8]:#X}", wr_buf);
             flash.write_memory(0, &wr_buf, use_dma).await;
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
             assert_eq!(rd_buf[0], 0x00);
             assert_eq!(rd_buf[15], 0x0F);
@@ -144,11 +144,11 @@ async fn main(_spawner: Spawner) {
             // info!("FLASH ID: {=[u8]:x}", flash_id);
 
             let mut rd_buf = [0u8; 16];
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
 
             flash.erase_sector(0).await;
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
             assert_eq!(rd_buf[0], 0xFF);
             assert_eq!(rd_buf[15], 0xFF);
@@ -159,7 +159,7 @@ async fn main(_spawner: Spawner) {
             }
             info!("WRITE BUF: {=[u8]:#X}", wr_buf);
             flash.write_memory(0, &wr_buf, use_dma).await;
-            flash.read_memory(0, &mut rd_buf, use_dma);
+            flash.read_memory(0, &mut rd_buf, use_dma).await;
             info!("READ BUF: {=[u8]:#X}", rd_buf);
             assert_eq!(rd_buf[0], 0x00);
             assert_eq!(rd_buf[15], 0x0F);
@@ -252,7 +252,7 @@ impl<'d, I: Instance> FlashMemory<'d, I> {
         buffer
     }
 
-    pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
+    pub async fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
         let transaction = TransferConfig {
             iwidth: HspiWidth::SING,
             instruction: Some(Self::CMD_READ as u32),
@@ -263,7 +263,7 @@ impl<'d, I: Instance> FlashMemory<'d, I> {
             ..Default::default()
         };
         if use_dma {
-            self.hspi.blocking_read_dma(buffer, transaction).unwrap();
+            self.hspi.read(buffer, transaction).await.unwrap();
         } else {
             self.hspi.blocking_read(buffer, transaction).unwrap();
         }
@@ -313,7 +313,7 @@ impl<'d, I: Instance> FlashMemory<'d, I> {
         };
         self.write_enable().await;
         if use_dma {
-            self.hspi.blocking_write_dma(buffer, transaction).unwrap();
+            self.hspi.write(buffer, transaction).await.unwrap();
         } else {
             self.hspi.blocking_write(buffer, transaction).unwrap();
         }
@@ -525,7 +525,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
         buffer
     }
 
-    pub fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
+    pub async fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
         let transaction = TransferConfig {
             iwidth: HspiWidth::OCTO,
             instruction: Some(Self::CMD_READ_OCTA_DTR as u32),
@@ -540,7 +540,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
             ..Default::default()
         };
         if use_dma {
-            self.hspi.blocking_read_dma(buffer, transaction).unwrap();
+            self.hspi.read(buffer, transaction).await.unwrap();
         } else {
             self.hspi.blocking_read(buffer, transaction).unwrap();
         }
@@ -596,7 +596,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
         };
         self.write_enable_octa_dtr().await;
         if use_dma {
-            self.hspi.blocking_write_dma(buffer, transaction).unwrap();
+            self.hspi.write(buffer, transaction).await.unwrap();
         } else {
             self.hspi.blocking_write(buffer, transaction).unwrap();
         }
