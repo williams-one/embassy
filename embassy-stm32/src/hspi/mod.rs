@@ -498,13 +498,16 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
             w.set_isize(command.isize.into());
 
             w.set_admode(command.adwidth.into());
-            w.set_addtr(command.idtr);
+            w.set_addtr(command.addtr);
             w.set_adsize(command.adsize.into());
 
             w.set_dmode(command.dwidth.into());
             w.set_ddtr(command.ddtr);
+        });
 
-            w.set_dqse(command.ddtr);
+        // Configure DQS
+        T::REGS.ccr().modify(|w| {
+            w.set_dqse(command.ddtr && command.instruction.unwrap_or(0) != 0x12ED);
         });
 
         // Set information required to initiate transaction
