@@ -12,7 +12,7 @@ use embassy_stm32::hspi::{
     AddressSize, ChipSelectHighTime, FIFOThresholdLevel, Hspi, HspiWidth, Instance, MemorySize, MemoryType,
     TransferConfig, WrapSize,
 };
-use embassy_stm32::mode::Blocking;
+use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::rcc;
 use embassy_stm32::time::Hertz;
 use {defmt_rtt as _, panic_probe as _};
@@ -25,7 +25,7 @@ enum TestCase {
     OctaDtrDma,
 }
 
-const TEST_CASE: TestCase = TestCase::OctaDtr;
+const TEST_CASE: TestCase = TestCase::OctaDtrDma;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -115,13 +115,13 @@ async fn main(_spawner: Spawner) {
 
         TestCase::OctaDtr | TestCase::OctaDtrDma => {
             let use_dma = match TEST_CASE {
-                TestCase::SpiDma => true,
+                TestCase::OctaDtrDma => true,
                 _ => false,
             };
 
             info!("Testing flash in OCTA DTR mode and memory mapped mode");
 
-            let hspi = Hspi::new_blocking_octospi(
+            let hspi = Hspi::new_octospi(
                 p.HSPI1,
                 p.PI3,
                 p.PH10,
@@ -134,6 +134,7 @@ async fn main(_spawner: Spawner) {
                 p.PI1,
                 p.PH9,
                 p.PI2,
+                p.GPDMA1_CH7,
                 flash_config,
             );
 
@@ -183,11 +184,11 @@ async fn main(_spawner: Spawner) {
 /// Chip commands are hardcoded as they depend on the chip used.
 /// This implementation enables Octa I/O (OPI) and Double Transfer Rate (DTR)
 
-pub struct FlashMemory<I: Instance> {
-    hspi: Hspi<'static, I, Blocking>,
+pub struct FlashMemory<'d, I: Instance> {
+    hspi: Hspi<'d, I, Async>,
 }
 
-impl<I: Instance> FlashMemory<I> {
+impl<'d, I: Instance> FlashMemory<'d, I> {
     const MEMORY_PAGE_SIZE: usize = 256;
 
     const CMD_READ_ID: u8 = 0x9F;
@@ -208,7 +209,7 @@ impl<I: Instance> FlashMemory<I> {
     const CMD_READ_CR2: u8 = 0x71;
     const CMD_WRITE_CR2: u8 = 0x72;
 
-    pub async fn new(hspi: Hspi<'static, I, Blocking>) -> Self {
+    pub async fn new(hspi: Hspi<'d, I, Async>) -> Self {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
@@ -379,11 +380,11 @@ impl<I: Instance> FlashMemory<I> {
     }
 }
 
-pub struct OctaDtrFlashMemory<I: Instance> {
-    hspi: Hspi<'static, I, Blocking>,
+pub struct OctaDtrFlashMemory<'d, I: Instance> {
+    hspi: Hspi<'d, I, Async>,
 }
 
-impl<I: Instance> OctaDtrFlashMemory<I> {
+impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
     const MEMORY_PAGE_SIZE: usize = 256;
 
     const CMD_READ_OCTA_DTR: u16 = 0xEE11;
@@ -414,7 +415,7 @@ impl<I: Instance> OctaDtrFlashMemory<I> {
     const CR2_REG3_ADDR: u32 = 0x00000300;
     const CR2_DC_6_CYCLES: u8 = 0x06;
 
-    pub async fn new(hspi: Hspi<'static, I, Blocking>) -> Self {
+    pub async fn new(hspi: Hspi<'d, I, Async>) -> Self {
         let mut memory = Self { hspi };
 
         memory.reset_memory().await;
