@@ -712,141 +712,46 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 }
 
 impl<'d, T: Instance> Hspi<'d, T, Blocking> {
-    //     /// Create new blocking OSPI driver for a single spi external chip
-    //     pub fn new_blocking_singlespi(
-    //         peri: impl Peripheral<P = T> + 'd,
-    //         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-    //         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-    //         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-    //         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-    //         config: Config,
-    //     ) -> Self {
-    //         Self::new_inner(
-    //             peri,
-    //             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d1, AfType::input(Pull::None)),
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(
-    //                 nss,
-    //                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-    //             ),
-    //             None,
-    //             None,
-    //             config,
-    //             HspiWidth::SING,
-    //             false,
-    //         )
-    //     }
-
-    //     /// Create new blocking OSPI driver for a dualspi external chip
-    //     pub fn new_blocking_dualspi(
-    //         peri: impl Peripheral<P = T> + 'd,
-    //         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-    //         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-    //         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-    //         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-    //         config: Config,
-    //     ) -> Self {
-    //         Self::new_inner(
-    //             peri,
-    //             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(
-    //                 nss,
-    //                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-    //             ),
-    //             None,
-    //             None,
-    //             config,
-    //             HspiWidth::DUAL,
-    //             false,
-    //         )
-    //     }
-
-    //     /// Create new blocking OSPI driver for a quadspi external chip
-    //     pub fn new_blocking_quadspi(
-    //         peri: impl Peripheral<P = T> + 'd,
-    //         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-    //         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-    //         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-    //         d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
-    //         d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
-    //         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-    //         config: Config,
-    //     ) -> Self {
-    //         Self::new_inner(
-    //             peri,
-    //             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             None,
-    //             None,
-    //             None,
-    //             None,
-    //             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(
-    //                 nss,
-    //                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-    //             ),
-    //             None,
-    //             None,
-    //             config,
-    //             HspiWidth::QUAD,
-    //             false,
-    //         )
-    //     }
-
-    //     /// Create new blocking OSPI driver for two quadspi external chips
-    //     pub fn new_blocking_dualquadspi(
-    //         peri: impl Peripheral<P = T> + 'd,
-    //         sck: impl Peripheral<P = impl SckPin<T>> + 'd,
-    //         d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
-    //         d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
-    //         d2: impl Peripheral<P = impl D2Pin<T>> + 'd,
-    //         d3: impl Peripheral<P = impl D3Pin<T>> + 'd,
-    //         d4: impl Peripheral<P = impl D4Pin<T>> + 'd,
-    //         d5: impl Peripheral<P = impl D5Pin<T>> + 'd,
-    //         d6: impl Peripheral<P = impl D6Pin<T>> + 'd,
-    //         d7: impl Peripheral<P = impl D7Pin<T>> + 'd,
-    //         nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
-    //         config: Config,
-    //     ) -> Self {
-    //         Self::new_inner(
-    //             peri,
-    //             new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d1, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d2, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d3, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d4, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d5, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d6, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(d7, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
-    //             new_pin!(
-    //                 nss,
-    //                 AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
-    //             ),
-    //             None,
-    //             None,
-    //             config,
-    //             HspiWidth::QUAD,
-    //             true,
-    //         )
-    //     }
+    /// Create new blocking OSPI driver for a single spi external chip
+    pub fn new_blocking_singlespi(
+        peri: impl Peripheral<P = T> + 'd,
+        sck: impl Peripheral<P = impl SckPin<T>> + 'd,
+        d0: impl Peripheral<P = impl D0Pin<T>> + 'd,
+        d1: impl Peripheral<P = impl D1Pin<T>> + 'd,
+        nss: impl Peripheral<P = impl NSSPin<T>> + 'd,
+        config: Config,
+    ) -> Self {
+        Self::new_inner(
+            peri,
+            new_pin!(d0, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(d1, AfType::input(Pull::None)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            new_pin!(sck, AfType::output(OutputType::PushPull, Speed::VeryHigh)),
+            new_pin!(
+                nss,
+                AfType::output_pull(OutputType::PushPull, Speed::VeryHigh, Pull::Up)
+            ),
+            None,
+            None,
+            None,
+            config,
+            HspiWidth::SING,
+            false,
+        )
+    }
 
     /// Create new blocking HSPI driver for octospi external chips
     pub fn new_blocking_octospi(
@@ -1214,23 +1119,32 @@ impl<'d, T: Instance> Hspi<'d, T, Blocking> {
 //     }
 // }
 
-// impl<'d, T: Instance, M: PeriMode> Drop for Hspi<'d, T, M> {
-//     fn drop(&mut self) {
-//         self.sck.as_ref().map(|x| x.set_as_disconnected());
-//         self.d0.as_ref().map(|x| x.set_as_disconnected());
-//         self.d1.as_ref().map(|x| x.set_as_disconnected());
-//         self.d2.as_ref().map(|x| x.set_as_disconnected());
-//         self.d3.as_ref().map(|x| x.set_as_disconnected());
-//         self.d4.as_ref().map(|x| x.set_as_disconnected());
-//         self.d5.as_ref().map(|x| x.set_as_disconnected());
-//         self.d6.as_ref().map(|x| x.set_as_disconnected());
-//         self.d7.as_ref().map(|x| x.set_as_disconnected());
-//         self.nss.as_ref().map(|x| x.set_as_disconnected());
-//         self.dqs.as_ref().map(|x| x.set_as_disconnected());
+impl<'d, T: Instance, M: PeriMode> Drop for Hspi<'d, T, M> {
+    fn drop(&mut self) {
+        self.sck.as_ref().map(|x| x.set_as_disconnected());
+        self.d0.as_ref().map(|x| x.set_as_disconnected());
+        self.d1.as_ref().map(|x| x.set_as_disconnected());
+        self.d2.as_ref().map(|x| x.set_as_disconnected());
+        self.d3.as_ref().map(|x| x.set_as_disconnected());
+        self.d4.as_ref().map(|x| x.set_as_disconnected());
+        self.d5.as_ref().map(|x| x.set_as_disconnected());
+        self.d6.as_ref().map(|x| x.set_as_disconnected());
+        self.d7.as_ref().map(|x| x.set_as_disconnected());
+        self.d8.as_ref().map(|x| x.set_as_disconnected());
+        self.d9.as_ref().map(|x| x.set_as_disconnected());
+        self.d10.as_ref().map(|x| x.set_as_disconnected());
+        self.d11.as_ref().map(|x| x.set_as_disconnected());
+        self.d12.as_ref().map(|x| x.set_as_disconnected());
+        self.d13.as_ref().map(|x| x.set_as_disconnected());
+        self.d14.as_ref().map(|x| x.set_as_disconnected());
+        self.d15.as_ref().map(|x| x.set_as_disconnected());
+        self.nss.as_ref().map(|x| x.set_as_disconnected());
+        self.dqs0.as_ref().map(|x| x.set_as_disconnected());
+        self.dqs1.as_ref().map(|x| x.set_as_disconnected());
 
-//         rcc::disable::<T>();
-//     }
-// }
+        rcc::disable::<T>();
+    }
+}
 
 // fn finish_dma(regs: Regs) {
 //     while !regs.sr().read().tcf() {}
