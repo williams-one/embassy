@@ -222,25 +222,23 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         Ok(())
     }
 
-    //     /// Quit from memory mapped mode
-    //     pub fn disable_memory_mapped_mode(&mut self) {
-    //         let reg = T::REGS;
+    /// Quit from memory mapped mode
+    pub fn disable_memory_mapped_mode(&mut self) {
+        T::REGS.cr().modify(|r| {
+            r.set_fmode(FunctionalMode::IndirectWrite.into());
+            r.set_abort(true);
+            r.set_dmaen(false);
+            r.set_en(false);
+        });
 
-    //         T::REGS.cr().modify(|r| {
-    //             r.set_fmode(crate::hspi::vals::FunctionalMode::INDIRECTWRITE);
-    //             r.set_abort(true);
-    //             r.set_dmaen(false);
-    //             r.set_en(false);
-    //         });
+        // Clear transfer complete flag
+        T::REGS.fcr().write(|w| w.set_ctcf(true));
 
-    //         // Clear transfer complete flag
-    //         T::REGS.fcr().write(|w| w.set_ctcf(true));
-
-    //         // Re-enable hspi
-    //         T::REGS.cr().modify(|r| {
-    //             r.set_en(true);
-    //         });
-    //     }
+        // Re-enable HSPI
+        T::REGS.cr().modify(|r| {
+            r.set_en(true);
+        });
+    }
 
     fn new_inner(
         peri: impl Peripheral<P = T> + 'd,
@@ -279,6 +277,38 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
 
         while T::REGS.sr().read().busy() {}
 
+        Self::configure_registers(&config, Some(dual_memory_mode));
+
+        Self {
+            _peri: peri,
+            sck,
+            d0,
+            d1,
+            d2,
+            d3,
+            d4,
+            d5,
+            d6,
+            d7,
+            d8,
+            d9,
+            d10,
+            d11,
+            d12,
+            d13,
+            d14,
+            d15,
+            nss,
+            dqs0,
+            dqs1,
+            dma,
+            _phantom: PhantomData,
+            config,
+            width,
+        }
+    }
+
+    fn configure_registers(config: &Config, dual_memory_mode: Option<bool>) {
         // Device configuration
         T::REGS.dcr1().modify(|w| {
             w.set_mtyp(config.memory_type.into());
@@ -317,9 +347,11 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         // So it is necessary to wait the calibration is complete
         while T::REGS.sr().read().busy() {}
 
-        T::REGS.cr().modify(|w| {
-            w.set_dmm(dual_memory_mode);
-        });
+        if let Some(dual_memory_mode) = dual_memory_mode {
+            T::REGS.cr().modify(|w| {
+                w.set_dmm(dual_memory_mode);
+            });
+        }
 
         T::REGS.tcr().modify(|w| {
             w.set_sshift(config.sample_shifting);
@@ -336,34 +368,6 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
             T::REGS.dcr1().modify(|w| {
                 w.set_frck(config.free_running_clock);
             });
-        }
-
-        Self {
-            _peri: peri,
-            sck,
-            d0,
-            d1,
-            d2,
-            d3,
-            d4,
-            d5,
-            d6,
-            d7,
-            d8,
-            d9,
-            d10,
-            d11,
-            d12,
-            d13,
-            d14,
-            d15,
-            nss,
-            dqs0,
-            dqs1,
-            dma,
-            _phantom: PhantomData,
-            config,
-            width,
         }
     }
 
@@ -545,75 +549,20 @@ impl<'d, T: Instance, M: PeriMode> Hspi<'d, T, M> {
         Ok(())
     }
 
-    //     /// Set new bus configuration
-    //     pub fn set_config(&mut self, config: &Config) {
-    //         // Wait for busy flag to clear
-    //         while T::REGS.sr().read().busy() {}
+    /// Set new bus configuration
+    pub fn set_config(&mut self, config: &Config) {
+        // Wait for busy flag to clear
+        while T::REGS.sr().read().busy() {}
 
-    //         // Disable DMA channel while configuring the peripheral
-    //         T::REGS.cr().modify(|w| {
-    //             w.set_dmaen(false);
-    //         });
+        // Disable DMA channel while configuring the peripheral
+        T::REGS.cr().modify(|w| {
+            w.set_dmaen(false);
+        });
 
-    //         // Device configuration
-    //         T::REGS.dcr1().modify(|w| {
-    //             w.set_devsize(config.device_size.into());
-    //             w.set_mtyp(vals::MemType::from_bits(config.memory_type.into()));
-    //             w.set_csht(config.chip_select_high_time.into());
-    //             w.set_dlybyp(config.delay_block_bypass);
-    //             w.set_frck(false);
-    //             w.set_ckmode(config.clock_mode);
-    //         });
+        Self::configure_registers(config, None);
 
-    //         T::REGS.dcr2().modify(|w| {
-    //             w.set_wrapsize(config.wrap_size.into());
-    //         });
-
-    //         T::REGS.dcr3().modify(|w| {
-    //             w.set_csbound(config.chip_select_boundary);
-    //             #[cfg(octhspi_v1)]
-    //             {
-    //                 w.set_maxtran(config.max_transfer);
-    //             }
-    //         });
-
-    //         T::REGS.dcr4().modify(|w| {
-    //             w.set_refresh(config.refresh);
-    //         });
-
-    //         T::REGS.cr().modify(|w| {
-    //             w.set_fthres(vals::Threshold(config.fifo_threshold.into()));
-    //         });
-
-    //         // Wait for busy flag to clear
-    //         while T::REGS.sr().read().busy() {}
-
-    //         T::REGS.dcr2().modify(|w| {
-    //             w.set_prescaler(config.clock_prescaler);
-    //         });
-
-    //         T::REGS.tcr().modify(|w| {
-    //             w.set_sshift(match config.sample_shifting {
-    //                 true => vals::SampleShift::HALFCYCLE,
-    //                 false => vals::SampleShift::NONE,
-    //             });
-    //             w.set_dhqc(config.delay_hold_quarter_cycle);
-    //         });
-
-    //         // Enable peripheral
-    //         T::REGS.cr().modify(|w| {
-    //             w.set_en(true);
-    //         });
-
-    //         // Free running clock needs to be set after peripheral enable
-    //         if config.free_running_clock {
-    //             T::REGS.dcr1().modify(|w| {
-    //                 w.set_frck(config.free_running_clock);
-    //             });
-    //         }
-
-    //         self.config = *config;
-    //     }
+        self.config = *config;
+    }
 
     /// Get current configuration
     pub fn get_config(&self) -> Config {

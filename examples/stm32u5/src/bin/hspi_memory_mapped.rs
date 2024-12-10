@@ -12,7 +12,7 @@ use embassy_stm32::hspi::{
     AddressSize, ChipSelectHighTime, FIFOThresholdLevel, Hspi, HspiWidth, Instance, MemorySize, MemoryType,
     TransferConfig, WrapSize,
 };
-use embassy_stm32::mode::{Async, Blocking};
+use embassy_stm32::mode::Async;
 use embassy_stm32::rcc;
 use embassy_stm32::time::Hertz;
 use {defmt_rtt as _, panic_probe as _};
