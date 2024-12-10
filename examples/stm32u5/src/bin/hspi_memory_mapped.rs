@@ -178,9 +178,6 @@ impl<I: Instance> FlashMemory<I> {
     const CMD_READ_CR2: u8 = 0x71;
     const CMD_WRITE_CR2: u8 = 0x72;
 
-    const CR2_REG3_ADDR: u32 = 0x00000300;
-    const CR2_DC_6_CYCLES: u8 = 0x06;
-
     pub async fn new(hspi: Hspi<'static, I, Blocking>) -> Self {
         let mut memory = Self { hspi };
 
