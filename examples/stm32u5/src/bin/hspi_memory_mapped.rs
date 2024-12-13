@@ -9,8 +9,8 @@
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::hspi::{
-    AddressSize, ChipSelectHighTime, FIFOThresholdLevel, Hspi, HspiWidth, Instance, MemorySize, MemoryType,
-    TransferConfig, WrapSize,
+    AddressSize, ChipSelectHighTime, DummyCycles, FIFOThresholdLevel, Hspi, HspiWidth, Instance, MemorySize,
+    MemoryType, TransferConfig, WrapSize,
 };
 use embassy_stm32::mode::Async;
 use embassy_stm32::rcc;
@@ -140,8 +140,8 @@ async fn main(_spawner: Spawner) {
 
             let mut flash = OctaDtrFlashMemory::new(hspi).await;
 
-            // let flash_id = flash.read_id();
-            // info!("FLASH ID: {=[u8]:x}", flash_id);
+            let flash_id = flash.read_id();
+            info!("FLASH ID: {=[u8]:x}", flash_id);
 
             let mut rd_buf = [0u8; 16];
             flash.read_memory(0, &mut rd_buf, use_dma).await;
@@ -174,6 +174,22 @@ async fn main(_spawner: Spawner) {
             let second_u32 = unsafe { *(0xA0000004 as *const u32) };
             assert_eq!(second_u32, 0x07060504);
             info!("second_u32: 0x{=u32:X}", second_u32);
+
+            let first_u8 = unsafe { *(0xA0000000 as *const u8) };
+            assert_eq!(first_u8, 00);
+            info!("first_u8: 0x{=u8:X}", first_u8);
+
+            let second_u8 = unsafe { *(0xA0000001 as *const u8) };
+            assert_eq!(second_u8, 0x01);
+            info!("second_u8: 0x{=u8:X}", second_u8);
+
+            let third_u8 = unsafe { *(0xA0000002 as *const u8) };
+            assert_eq!(third_u8, 0x02);
+            info!("third_u8: 0x{=u8:X}", third_u8);
+
+            let fourth_u8 = unsafe { *(0xA0000003 as *const u8) };
+            assert_eq!(fourth_u8, 0x03);
+            info!("fourth_u8: 0x{=u8:X}", fourth_u8);
         }
     }
 
@@ -413,7 +429,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
     const CR2_OCTA_DTR: u8 = 0x02;
 
     const CR2_REG3_ADDR: u32 = 0x00000300;
-    const CR2_DC_6_CYCLES: u8 = 0x06;
+    const CR2_DC_6_CYCLES: u8 = 0x07;
 
     pub async fn new(hspi: Hspi<'d, I, Async>) -> Self {
         let mut memory = Self { hspi };
@@ -505,8 +521,8 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
         self.exec_command_octa_dtr(Self::CMD_WRITE_ENABLE_OCTA_DTR).await;
     }
 
-    pub fn read_id_octa_dtr(&mut self) -> [u8; 3] {
-        let mut buffer = [0; 3];
+    pub fn read_id(&mut self) -> [u8; 3] {
+        let mut buffer = [0; 6];
         let transaction: TransferConfig = TransferConfig {
             iwidth: HspiWidth::OCTO,
             instruction: Some(Self::CMD_READ_ID_OCTA_DTR as u32),
@@ -518,11 +534,12 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
             addtr: true,
             dwidth: HspiWidth::OCTO,
             ddtr: true,
+            dummy: DummyCycles::_6,
             ..Default::default()
         };
         info!("Reading flash id: 0x{:X}", transaction.instruction.unwrap());
         self.hspi.blocking_read(&mut buffer, transaction).unwrap();
-        buffer
+        [buffer[0], buffer[2], buffer[4]]
     }
 
     pub async fn read_memory(&mut self, addr: u32, buffer: &mut [u8], use_dma: bool) {
